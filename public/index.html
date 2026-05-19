@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Random HTML Game Generator</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="studio-frame" aria-label="AI game preview generator">
+        <div class="game-column">
+          <header class="brand-row">
+            <a class="brand" href="#" aria-label="Random HTML Game Generator home">
+              <span class="brand-mark">AI</span>
+              <span>
+                <strong>Random HTML Game Generator</strong>
+                <small>Preview agent for simple 2D browser games</small>
+              </span>
+            </a>
+            <div class="status-pill" id="statusPill">
+              <span></span>
+              <strong id="statusText">Ready</strong>
+            </div>
+          </header>
+
+          <section class="preview-stage" aria-label="Generated game preview">
+            <div class="preview-toolbar">
+              <div>
+                <p>Generated preview</p>
+                <h1 id="previewTitle">等待生成</h1>
+              </div>
+              <a class="zip-link disabled" id="zipLink" href="#" aria-disabled="true">Zip</a>
+            </div>
+
+            <div class="iframe-shell">
+              <iframe
+                id="previewFrame"
+                title="Generated HTML game preview"
+                sandbox="allow-scripts allow-same-origin"
+              ></iframe>
+              <div class="empty-state" id="emptyState">
+                <strong>点击右侧按钮生成一个 preview 小游戏</strong>
+                <span>后端会生成三文件 zip，解压后放进这个大边框里运行。</span>
+              </div>
+            </div>
+
+            <div class="game-hud">
+              <span>Category <strong id="categoryValue">None</strong></span>
+              <span>Files <strong>index / css / js</strong></span>
+              <span id="controlsValue">Ready for a random 2D game.</span>
+            </div>
+          </section>
+        </div>
+
+        <aside class="agent-panel" aria-label="Preview generation controls">
+          <div class="agent-copy">
+            <p class="eyebrow">Preview Agent</p>
+            <h2>按钮式生成小游戏</h2>
+            <p>
+              每次点击都会生成一个新的简单 2D HTML 游戏，打成完整 zip，然后解压到左侧预览区域。
+            </p>
+          </div>
+
+          <div class="button-grid" id="buttonGrid">
+            <button class="generate-button primary" type="button" data-category="random">随机生成</button>
+            <button class="generate-button" type="button" data-category="tower-defense">塔防</button>
+            <button class="generate-button" type="button" data-category="jumper">跳跃</button>
+            <button class="generate-button" type="button" data-category="paddle">打球</button>
+          </div>
+
+          <div class="agent-card">
+            <span>Output contract</span>
+            <strong>完整环境 zip</strong>
+            <p>zip 中只包含 `index.html`、`styles.css`、`script.js`。预览时由后端解压并托管。</p>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
