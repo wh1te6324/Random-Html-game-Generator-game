@@ -55,7 +55,7 @@ a {
 
 .studio-frame {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 340px);
   gap: clamp(18px, 3vw, 34px);
   width: min(1480px, 100%);
   min-height: min(820px, calc(100vh - 84px));
@@ -209,7 +209,7 @@ h2 {
 
 .iframe-shell {
   position: relative;
-  min-height: 520px;
+  min-height: min(70vh, 720px);
   background: #020302;
 }
 
@@ -217,7 +217,7 @@ iframe {
   display: block;
   width: 100%;
   height: min(62vh, 600px);
-  min-height: 520px;
+  min-height: min(70vh, 720px);
   border: 0;
   background: #020302;
 }
@@ -302,6 +302,11 @@ iframe {
   opacity: 0.58;
 }
 
+.large-generate {
+  min-height: 68px;
+  font-size: 18px;
+}
+
 .agent-card {
   padding: 16px;
   border: 1px solid var(--line);
@@ -370,7 +375,7 @@ iframe {
 
   .iframe-shell,
   iframe {
-    min-height: 360px;
+    min-height: 420px;
   }
 
   .agent-panel {

@@ -76,9 +76,15 @@ function setBusy(isBusy, activeButton) {
 
 function labelFor(category) {
   const labels = {
-    "tower-defense": "Tower Defense",
-    jumper: "Jumper",
-    paddle: "Paddle Ball"
+    "asteroid-dodge": "Asteroid Dodge",
+    "orb-collector": "Orb Collector",
+    "target-clicker": "Target Clicker",
+    "snake-trail": "Snake Trail",
+    "lane-runner": "Lane Runner",
+    "orbit-guard": "Orbit Guard",
+    "paddle-breaker": "Paddle Breaker",
+    "sky-jumper": "Sky Jumper",
+    "pulse-defense": "Pulse Defense"
   };
   return labels[category] || "Random";
 }
