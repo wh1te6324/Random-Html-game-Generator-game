@@ -25,7 +25,14 @@ const themes = [
   { name: "Cherry Grid", accent: "#ff4f7b", secondary: "#c9ff2f", danger: "#75f4ff", bg: "#090205", pattern: "diagonal" }
 ];
 
-const shapes = ["ship", "diamond", "circle", "triangle", "bug", "shield", "comet"];
+const spriteKits = [
+  { name: "Space Junk", player: "rocket", enemy: "asteroid", collectible: "star-core", decor: ["tiny-star", "satellite", "spark"] },
+  { name: "Bubble Reef", player: "submarine", enemy: "jelly", collectible: "pearl", decor: ["bubble", "coral", "wave"] },
+  { name: "Bug Circuit", player: "hover-bug", enemy: "virus-eye", collectible: "data-chip", decor: ["circuit-node", "spark", "scanline"] },
+  { name: "Pocket Table", player: "cue-ball", enemy: "stripe-ball", collectible: "eight-ball", decor: ["pocket", "chalk", "rail-light"] },
+  { name: "Sky Carnival", player: "kite", enemy: "storm-cloud", collectible: "ticket-star", decor: ["flag", "pinwheel", "spark"] },
+  { name: "Dungeon Neon", player: "tiny-knight", enemy: "slime-eye", collectible: "gem-cluster", decor: ["rune", "torch", "crack"] }
+];
 
 export async function createPreviewGameZip({ category, id, outputDir }) {
   const pickedCategory = categories.includes(category) ? category : randomItem(categories);
@@ -104,14 +111,15 @@ export function slugify(value) {
 function buildGame(category, seed) {
   const rng = mulberry32(seed);
   const theme = themes[Math.floor(rng() * themes.length)];
-  const playerShape = shapes[Math.floor(rng() * shapes.length)];
-  const enemyShape = shapes[Math.floor(rng() * shapes.length)];
-  const collectibleShape = shapes[Math.floor(rng() * shapes.length)];
+  const spriteKit = spriteKits[Math.floor(rng() * spriteKits.length)];
+  const playerShape = spriteKit.player;
+  const enemyShape = spriteKit.enemy;
+  const collectibleShape = spriteKit.collectible;
   const decoration = Array.from({ length: 18 }, (_, index) => ({
     x: Math.floor(rng() * 960),
     y: Math.floor(rng() * 540),
     size: 8 + Math.floor(rng() * 34),
-    shape: shapes[(index + Math.floor(rng() * shapes.length)) % shapes.length],
+    shape: spriteKit.decor[(index + Math.floor(rng() * spriteKit.decor.length)) % spriteKit.decor.length],
     alpha: 0.08 + rng() * 0.18
   }));
 
@@ -140,7 +148,8 @@ function buildGame(category, seed) {
     playerShape,
     enemyShape,
     collectibleShape,
-    decoration
+    decoration,
+    spriteKit: spriteKit.name
   };
 }
 
@@ -273,7 +282,8 @@ function buildScript(game) {
     playerShape: game.playerShape,
     enemyShape: game.enemyShape,
     collectibleShape: game.collectibleShape,
-    decoration: game.decoration
+    decoration: game.decoration,
+    spriteKit: game.spriteKit
   };
 
   return `const CONFIG = ${JSON.stringify(config)};
@@ -723,7 +733,94 @@ function roundRect(x, y, w, h, r) {
   ctx.quadraticCurveTo(x, y, x + r, y);
 }
 
+function drawSprite(shape, x, y, size, color, alpha = 1, rotation = 0) {
+  const r = size / 2;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 12;
+  ctx.lineWidth = Math.max(2, size * 0.07);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  const ink = "rgba(2,3,2,.78)";
+
+  if (shape === "rocket") {
+    ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r * .55, -r * .55); ctx.lineTo(-r * .25, 0); ctx.lineTo(-r * .55, r * .55); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(r * .12, 0, r * .18, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = CONFIG.danger; ctx.beginPath(); ctx.moveTo(-r * .62, 0); ctx.lineTo(-r * 1.08, -r * .24); ctx.lineTo(-r * 1.08, r * .24); ctx.closePath(); ctx.fill();
+    ctx.restore(); return true;
+  }
+  if (shape === "asteroid") {
+    ctx.beginPath();
+    for (let i = 0; i < 9; i += 1) { const a = i / 9 * Math.PI * 2; const rr = r * (.72 + (i % 3) * .16); const px = Math.cos(a) * rr, py = Math.sin(a) * rr; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.closePath(); ctx.fill(); ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(-r*.15, -r*.08, r*.14, 0, Math.PI*2); ctx.arc(r*.22, r*.2, r*.1, 0, Math.PI*2); ctx.fill();
+    ctx.restore(); return true;
+  }
+  if (shape === "star-core" || shape === "ticket-star" || shape === "tiny-star") {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i += 1) { const a = -Math.PI/2 + i * Math.PI / 5; const rr = i % 2 ? r * .42 : r; const px = Math.cos(a) * rr, py = Math.sin(a) * rr; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.closePath(); ctx.fill(); ctx.restore(); return true;
+  }
+  if (shape === "submarine") {
+    roundRect(-r, -r*.42, size, r*.84, r*.35); ctx.fill();
+    ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(r*.28, 0, r*.18, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = color; ctx.beginPath(); ctx.arc(-r*.2, -r*.52, r*.28, Math.PI, 0); ctx.stroke();
+    ctx.restore(); return true;
+  }
+  if (shape === "jelly") {
+    ctx.beginPath(); ctx.arc(0, -r*.1, r*.72, Math.PI, 0); ctx.lineTo(r*.65, r*.2); ctx.quadraticCurveTo(0, r*.55, -r*.65, r*.2); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = color; for (let i=-1;i<=1;i+=1){ctx.beginPath();ctx.moveTo(i*r*.32,r*.28);ctx.quadraticCurveTo(i*r*.42,r*.65,i*r*.15,r*.9);ctx.stroke();}
+    ctx.restore(); return true;
+  }
+  if (shape === "pearl" || shape === "bubble") {
+    const grad = ctx.createRadialGradient(-r*.25, -r*.25, r*.1, 0, 0, r); grad.addColorStop(0, "#fff"); grad.addColorStop(.35, color); grad.addColorStop(1, "rgba(255,255,255,.08)"); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+    ctx.restore(); return true;
+  }
+  if (shape === "hover-bug" || shape === "virus-eye" || shape === "slime-eye") {
+    ctx.beginPath(); ctx.ellipse(0, 0, r*.85, r*.62, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#f2f8ef"; ctx.beginPath(); ctx.arc(r*.18, -r*.05, r*.22, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(r*.22, -r*.05, r*.1, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = color; for (let i=-1;i<=1;i+=2){ctx.beginPath();ctx.moveTo(-r*.15,i*r*.55);ctx.lineTo(-r*.48,i*r*.9);ctx.stroke();}
+    ctx.restore(); return true;
+  }
+  if (shape === "data-chip") {
+    roundRect(-r*.75,-r*.55,r*1.5,r*1.1,r*.12); ctx.fill(); ctx.strokeStyle = ink; for(let i=-2;i<=2;i+=1){ctx.beginPath();ctx.moveTo(i*r*.22,-r*.55);ctx.lineTo(i*r*.22,r*.55);ctx.stroke();}
+    ctx.restore(); return true;
+  }
+  if (shape === "cue-ball" || shape === "stripe-ball" || shape === "eight-ball") {
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+    if (shape === "stripe-ball") { ctx.fillStyle = "rgba(255,255,255,.78)"; ctx.fillRect(-r, -r*.22, size, r*.44); }
+    if (shape === "eight-ball") { ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(0,0,r*.42,0,Math.PI*2); ctx.fill(); ctx.fillStyle="#fff"; ctx.font = Math.floor(r*.55)+"px system-ui"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("8",0,0); }
+    ctx.restore(); return true;
+  }
+  if (shape === "kite") {
+    ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r*.72,0); ctx.lineTo(0,r); ctx.lineTo(-r*.52,0); ctx.closePath(); ctx.fill(); ctx.strokeStyle=CONFIG.secondary; ctx.beginPath(); ctx.moveTo(0,r); ctx.quadraticCurveTo(-r*.2,r*1.35,r*.24,r*1.7); ctx.stroke();
+    ctx.restore(); return true;
+  }
+  if (shape === "storm-cloud") {
+    ctx.beginPath(); ctx.arc(-r*.38,0,r*.42,0,Math.PI*2); ctx.arc(0,-r*.18,r*.55,0,Math.PI*2); ctx.arc(r*.42,0,r*.45,0,Math.PI*2); ctx.fill(); ctx.fillRect(-r*.72,0,r*1.44,r*.36);
+    ctx.restore(); return true;
+  }
+  if (shape === "tiny-knight") {
+    ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r*.62,-r*.15); ctx.lineTo(r*.32,r*.78); ctx.lineTo(-r*.32,r*.78); ctx.lineTo(-r*.62,-r*.15); ctx.closePath(); ctx.fill(); ctx.fillStyle=ink; ctx.fillRect(-r*.22,-r*.2,r*.44,r*.12);
+    ctx.restore(); return true;
+  }
+  if (["satellite","spark","coral","wave","circuit-node","scanline","pocket","chalk","rail-light","flag","pinwheel","rune","torch","crack"].includes(shape)) {
+    ctx.globalAlpha *= .75;
+    if (shape === "spark" || shape === "pinwheel") { for(let i=0;i<4;i+=1){ctx.rotate(Math.PI/4);ctx.fillRect(-r*.08,-r,r*.16,r*2);} }
+    else if (shape === "flag") { ctx.fillRect(-r*.08,-r,r*.16,r*1.8); ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r*.8,-r*.72); ctx.lineTo(0,-r*.42); ctx.closePath(); ctx.fill(); }
+    else if (shape === "crack" || shape === "wave") { ctx.beginPath(); ctx.moveTo(-r,0); ctx.quadraticCurveTo(-r*.4,-r*.35,0,0); ctx.quadraticCurveTo(r*.4,r*.35,r,0); ctx.stroke(); }
+    else { ctx.strokeRect(-r*.55,-r*.55,r*1.1,r*1.1); ctx.beginPath(); ctx.arc(0,0,r*.22,0,Math.PI*2); ctx.fill(); }
+    ctx.restore(); return true;
+  }
+  ctx.restore();
+  return false;
+}
+
 function drawShape(shape, x, y, size, color, alpha = 1, rotation = 0) {
+  if (drawSprite(shape, x, y, size, color, alpha, rotation)) return;
+
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(x, y);
@@ -734,7 +831,7 @@ function drawShape(shape, x, y, size, color, alpha = 1, rotation = 0) {
   ctx.strokeStyle = color;
   ctx.lineWidth = Math.max(2, size * 0.08);
   const r = size / 2;
-  if (shape === "circle") {
+  if (shape === "circle" || shape === "diamond") {
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fill();
