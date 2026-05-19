@@ -10,6 +10,8 @@ const categories = [
   "lane-runner",
   "orbit-guard",
   "paddle-breaker",
+  "pong-duel",
+  "billiards-break",
   "sky-jumper",
   "pulse-defense"
 ];
@@ -121,6 +123,8 @@ function buildGame(category, seed) {
     "lane-runner": ["Lane Shift", "swap lanes through incoming gates", "Use Up/Down, W/S, or tap lanes."],
     "orbit-guard": ["Orbit Guard", "rotate a shield around the core", "Click/tap or press Space to flip orbit direction."],
     "paddle-breaker": ["Prism Paddle", "bounce the core through a patterned wall", "Move with mouse/touch or Arrow keys."],
+    "pong-duel": ["Pulse Pong", "rally against a reactive AI paddle", "Move your paddle with mouse/touch or W/S."],
+    "billiards-break": ["Neon Billiards", "strike the cue orb into glowing pockets", "Aim with mouse/touch, release to shoot."],
     "sky-jumper": ["Sky Hop", "chain platforms and collect sparks", "Press Space/ArrowUp or tap to double jump."],
     "pulse-defense": ["Pulse Defense", "place emitters to stop the wave", "Click empty cells to place towers."]
   };
@@ -332,6 +336,8 @@ function update() {
     if (CONFIG.category === "lane-runner") updateLane();
     if (CONFIG.category === "orbit-guard") updateOrbit();
     if (CONFIG.category === "paddle-breaker") updatePaddle();
+    if (CONFIG.category === "pong-duel") updatePong();
+    if (CONFIG.category === "billiards-break") updateBilliards();
     if (CONFIG.category === "sky-jumper") updateJumper();
     if (CONFIG.category === "pulse-defense") updateDefense();
   }
@@ -447,6 +453,90 @@ function updatePaddle() {
   });
 }
 
+function updatePong() {
+  const p = state.player;
+  p.x = 48;
+  if (pointer.active) p.y += (pointer.y - p.y) * 0.22;
+  if (keys.has("KeyW") || keys.has("ArrowUp")) p.y -= 7;
+  if (keys.has("KeyS") || keys.has("ArrowDown")) p.y += 7;
+  p.y = Math.max(82, Math.min(canvas.height - 82, p.y));
+  const ai = state.paddle;
+  ai.x = canvas.width - 66;
+  ai.y += (state.ball.y - ai.y) * 0.075;
+  ai.y = Math.max(82, Math.min(canvas.height - 82, ai.y));
+  state.ball.x += state.ball.vx;
+  state.ball.y += state.ball.vy;
+  if (state.ball.y < 38 || state.ball.y > canvas.height - 38) state.ball.vy *= -1;
+  const leftHit = state.ball.x - state.ball.r < p.x + 16 && Math.abs(state.ball.y - p.y) < 72 && state.ball.vx < 0;
+  const rightHit = state.ball.x + state.ball.r > ai.x - 16 && Math.abs(state.ball.y - ai.y) < 72 && state.ball.vx > 0;
+  if (leftHit || rightHit) {
+    state.ball.vx *= -1.05;
+    state.ball.vy += ((state.ball.y - (leftHit ? p.y : ai.y)) / 72) * 2.2;
+    state.score += 12;
+  }
+  if (state.ball.x < -50) finish();
+  if (state.ball.x > canvas.width + 50) {
+    state.score += 120;
+    state.ball.x = canvas.width / 2;
+    state.ball.y = canvas.height / 2;
+    state.ball.vx = -5 - Math.random() * 2;
+    state.ball.vy = (Math.random() - 0.5) * 7;
+  }
+}
+
+function updateBilliards() {
+  if (state.items.length === 0) {
+    state.items = Array.from({ length: 7 }, (_, index) => ({
+      x: 560 + (index % 3) * 34,
+      y: 210 + Math.floor(index / 3) * 42,
+      vx: 0,
+      vy: 0,
+      size: 22,
+      pocketed: false,
+      color: index % 2 ? CONFIG.secondary : CONFIG.danger
+    }));
+    state.ball = { x: 250, y: 300, vx: 0, vy: 0, r: 14 };
+  }
+  const balls = [state.ball, ...state.items.filter(item => !item.pocketed)];
+  balls.forEach(ball => {
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    ball.vx *= 0.985;
+    ball.vy *= 0.985;
+    if (Math.abs(ball.vx) < 0.015) ball.vx = 0;
+    if (Math.abs(ball.vy) < 0.015) ball.vy = 0;
+    if (ball.x < 70 || ball.x > canvas.width - 70) ball.vx *= -0.86;
+    if (ball.y < 76 || ball.y > canvas.height - 76) ball.vy *= -0.86;
+    ball.x = Math.max(70, Math.min(canvas.width - 70, ball.x));
+    ball.y = Math.max(76, Math.min(canvas.height - 76, ball.y));
+  });
+  for (let i = 0; i < balls.length; i += 1) {
+    for (let j = i + 1; j < balls.length; j += 1) {
+      const a = balls[i], b = balls[j];
+      const dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy) || 1;
+      if (dist < 30) {
+        const nx = dx / dist, ny = dy / dist;
+        const push = (30 - dist) * 0.5;
+        a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
+        const impulse = ((a.vx - b.vx) * nx + (a.vy - b.vy) * ny) * 0.9;
+        a.vx -= impulse * nx; a.vy -= impulse * ny; b.vx += impulse * nx; b.vy += impulse * ny;
+      }
+    }
+  }
+  const pockets = [[58, 64], [canvas.width / 2, 58], [canvas.width - 58, 64], [58, canvas.height - 58], [canvas.width / 2, canvas.height - 54], [canvas.width - 58, canvas.height - 58]];
+  state.items.forEach(item => {
+    if (item.pocketed) return;
+    if (pockets.some(([x, y]) => Math.hypot(item.x - x, item.y - y) < 34)) {
+      item.pocketed = true;
+      state.score += 90;
+    }
+  });
+  if (pockets.some(([x, y]) => Math.hypot(state.ball.x - x, state.ball.y - y) < 28)) {
+    state.ball.x = 250; state.ball.y = 300; state.ball.vx = 0; state.ball.vy = 0;
+  }
+  if (state.items.every(item => item.pocketed)) finish();
+}
+
 function updateJumper() {
   const p = state.player;
   p.vy += 0.55;
@@ -504,6 +594,8 @@ function draw() {
   CONFIG.decoration.forEach(asset => drawShape(asset.shape, asset.x, asset.y, asset.size, CONFIG.secondary, asset.alpha, state.tick * 0.01));
 
   if (CONFIG.category === "paddle-breaker") drawPaddleScene();
+  else if (CONFIG.category === "pong-duel") drawPongScene();
+  else if (CONFIG.category === "billiards-break") drawBilliardsScene();
   else if (CONFIG.category === "snake-trail") drawSnakeScene();
   else if (CONFIG.category === "pulse-defense") drawDefenseScene();
   else {
@@ -559,6 +651,34 @@ function drawPaddleScene() {
   drawShape(CONFIG.collectibleShape, state.ball.x, state.ball.y, state.ball.r * 2, CONFIG.secondary, 1, state.tick * 0.08);
 }
 
+function drawPongScene() {
+  ctx.strokeStyle = "rgba(255,255,255,.16)";
+  ctx.setLineDash([12, 12]);
+  ctx.beginPath(); ctx.moveTo(canvas.width / 2, 45); ctx.lineTo(canvas.width / 2, canvas.height - 45); ctx.stroke();
+  ctx.setLineDash([]);
+  drawShape("shield", state.player.x, state.player.y, 78, CONFIG.accent, 1, Math.PI / 2);
+  drawShape("shield", state.paddle.x, state.paddle.y, 78, CONFIG.secondary, 1, Math.PI / 2);
+  drawShape(CONFIG.collectibleShape, state.ball.x, state.ball.y, state.ball.r * 2.2, CONFIG.danger, 1, state.tick * 0.08);
+}
+
+function drawBilliardsScene() {
+  ctx.fillStyle = "rgba(255,255,255,.05)";
+  roundRect(46, 46, canvas.width - 92, canvas.height - 92, 28);
+  ctx.fill();
+  [[58,64],[canvas.width/2,58],[canvas.width-58,64],[58,canvas.height-58],[canvas.width/2,canvas.height-54],[canvas.width-58,canvas.height-58]].forEach(([x,y]) => {
+    ctx.fillStyle = "rgba(0,0,0,.72)";
+    ctx.beginPath(); ctx.arc(x, y, 24, 0, Math.PI * 2); ctx.fill();
+  });
+  state.items.filter(item => !item.pocketed).forEach((item, index) => drawShape(index % 2 ? "diamond" : "circle", item.x, item.y, item.size * 1.5, item.color, 1, state.tick * 0.01 + index));
+  drawShape(CONFIG.playerShape, state.ball.x, state.ball.y, state.ball.r * 2.4, CONFIG.accent, 1, 0);
+  const still = Math.hypot(state.ball.vx, state.ball.vy) < 0.08 && state.items.every(item => item.pocketed || Math.hypot(item.vx, item.vy) < 0.08);
+  if (still && pointer.active) {
+    ctx.strokeStyle = CONFIG.secondary;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(state.ball.x, state.ball.y); ctx.lineTo(pointer.x, pointer.y); ctx.stroke();
+  }
+}
+
 function drawSnakeScene() {
   state.trail.forEach((part, index) => drawShape(index === 0 ? CONFIG.playerShape : "circle", part.x, part.y, Math.max(12, 30 - index * 0.7), index === 0 ? CONFIG.accent : CONFIG.secondary, Math.max(0.35, 1 - index * 0.035), index));
   state.items.forEach(item => drawShape(CONFIG.collectibleShape, item.x, item.y, 22, CONFIG.danger, 1, state.tick * 0.05));
@@ -588,6 +708,19 @@ function drawDefenseScene() {
   ctx.fillStyle = "#f2f8ef";
   ctx.font = "800 18px system-ui";
   ctx.fillText("Cash " + state.cash + "   Lives " + state.lives, 22, 34);
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
 }
 
 function drawShape(shape, x, y, size, color, alpha = 1, rotation = 0) {
@@ -680,6 +813,19 @@ function centerText(title, sub) {
   ctx.fillText(sub, canvas.width / 2, canvas.height / 2 + 26);
   ctx.textAlign = "left";
 }
+
+canvas.addEventListener("pointerup", event => {
+  if (CONFIG.category === "billiards-break" && pointer.active) {
+    const moving = Math.hypot(state.ball.vx, state.ball.vy) > 0.08 || state.items.some(item => !item.pocketed && Math.hypot(item.vx, item.vy) > 0.08);
+    if (!moving) {
+      const dx = state.ball.x - pointer.x;
+      const dy = state.ball.y - pointer.y;
+      const power = Math.min(11, Math.hypot(dx, dy) * 0.045);
+      state.ball.vx = dx * 0.045 * power;
+      state.ball.vy = dy * 0.045 * power;
+    }
+  }
+});
 
 canvas.addEventListener("pointerdown", event => {
   pointer.active = true;

@@ -83,6 +83,8 @@ function labelFor(category) {
     "lane-runner": "Lane Runner",
     "orbit-guard": "Orbit Guard",
     "paddle-breaker": "Paddle Breaker",
+    "pong-duel": "Pong Duel",
+    "billiards-break": "Billiards Break",
     "sky-jumper": "Sky Jumper",
     "pulse-defense": "Pulse Defense"
   };

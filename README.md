@@ -43,7 +43,7 @@ Content-Type: application/json
 { "category": "tower-defense" }
 ```
 
-The public UI intentionally keeps only one random button. Internally, the preview pool includes dodge, collector, target clicker, snake/trail, lane runner, orbit defense, paddle breaker, platform jumper, and light tower defense patterns.
+The public UI intentionally keeps only one random button. Internally, the preview pool includes dodge, collector, target clicker, snake/trail, lane runner, orbit defense, Pong-style rallies, billiards/pool collision games, paddle breaker, platform jumper, and light tower defense patterns.
 
 Response:
 
