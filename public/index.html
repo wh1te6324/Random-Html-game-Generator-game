@@ -32,8 +32,11 @@
 
           <section class="game-stage" aria-label="Playable HTML mini game">
             <div class="game-toolbar">
-              <div>
+              <div class="title-stack">
                 <p id="stageLabel">Agent preview</p>
+                <div class="agent-dialogue" id="agentDialogue" aria-live="polite">
+                  <span class="agent-line active">Agent: 等待你的 prompt 或随机生成指令。</span>
+                </div>
                 <h1 id="stageTitle">Neon Dash</h1>
               </div>
               <button class="ghost-button" id="resetPreviewButton" type="button">Reset demo</button>
@@ -60,9 +63,9 @@
         <aside class="share-panel" aria-label="Agent generation controls">
           <div class="share-copy">
             <p class="eyebrow">Preview Agent</p>
-            <h2>按钮生成小游戏 preview</h2>
+            <h2>用 prompt 生成小游戏 preview</h2>
             <p>
-              每次点击都会让后端生成一个完整三文件 zip，解压后直接放到左侧大边框里运行。
+              写下你想要的玩法、主题或素材，agent 会解析 prompt，生成完整三文件 zip，并把结果加载到左侧游戏框。
             </p>
           </div>
 
@@ -71,7 +74,7 @@
               随机生成 preview 小游戏
             </button>
             <button class="share-button custom-game-button" id="customGameButton" type="button">
-              <span class="button-icon">✦</span>
+              <span class="button-icon">AI</span>
               生成你自己的游戏
             </button>
           </div>
@@ -82,7 +85,7 @@
               <textarea
                 id="customGamePrompt"
                 rows="5"
-                placeholder="例如：做一个霓虹台球小游戏，玩家拖拽母球击打目标球，有分数和重新开始。"
+                placeholder="例如：做一个霓虹台球小游戏，玩家拖拽母球击打目标球，有瞄准线、分数和重新开始。"
               ></textarea>
             </label>
             <button class="generate-button" id="publishCustomButton" type="submit">生成并发布到我的页面</button>
@@ -95,7 +98,7 @@
           </a>
 
           <output class="agent-log" id="agentLog" aria-live="polite">
-            Ready. 点击随机生成按钮，后端会生成 zip 并解压到左侧预览区。
+            Ready. 输入 prompt 后，生成过程会显示在左侧标题区域。
           </output>
         </aside>
       </section>

@@ -60,6 +60,7 @@ server.listen(port, host, () => {
 async function handleGenerate(request, response) {
   const body = await readJson(request);
   const category = body.category || "random";
+  const prompt = String(body.prompt || "").trim();
   const id = `${slugify(category)}-${Date.now().toString(36)}-${randomUUID().slice(0, 6)}`;
   const gameDir = path.join(generatedDir, id);
   const unpackDir = path.join(previewsDir, id);
@@ -67,7 +68,7 @@ async function handleGenerate(request, response) {
   await mkdir(gameDir, { recursive: true });
   await mkdir(unpackDir, { recursive: true });
 
-  const result = await createPreviewGameZip({ category, id, outputDir: gameDir });
+  const result = await createPreviewGameZip({ category, id, outputDir: gameDir, prompt });
   const extractedFiles = await extractGameZip(result.zipPath, unpackDir);
 
   sendJson(response, 200, {
@@ -77,7 +78,9 @@ async function handleGenerate(request, response) {
     zipUrl: `/generated-games/${id}/${id}.zip`,
     previewUrl: `/previews/${id}/index.html`,
     files: extractedFiles,
-    controls: result.controls
+    controls: result.controls,
+    promptSummary: result.promptSummary,
+    agentTrace: result.agentTrace
   });
 }
 
@@ -100,7 +103,7 @@ async function handlePublishCustom(request, response) {
   await mkdir(gameDir, { recursive: true });
   await mkdir(unpackDir, { recursive: true });
 
-  const result = await createPreviewGameZip({ category, id, outputDir: gameDir });
+  const result = await createPreviewGameZip({ category, id, outputDir: gameDir, prompt });
   const extractedFiles = await extractGameZip(result.zipPath, unpackDir);
   const hubPublish = await publishToClawHub({
     slug,
@@ -110,7 +113,8 @@ async function handlePublishCustom(request, response) {
     controls: result.controls,
     category: result.category,
     sourceDir: unpackDir,
-    zipPath: result.zipPath
+    zipPath: result.zipPath,
+    agentTrace: result.agentTrace
   });
 
   sendJson(response, 200, {
@@ -125,7 +129,9 @@ async function handlePublishCustom(request, response) {
     publishedUrl: hubPublish.publicUrl,
     hubPath: hubPublish.hubPath,
     files: extractedFiles,
-    controls: result.controls
+    controls: result.controls,
+    promptSummary: result.promptSummary,
+    agentTrace: result.agentTrace
   });
 }
 
@@ -233,7 +239,7 @@ function createGamePathSlug(category, seed) {
   return `${codes[category] || "game"}-${Number(seed).toString(36)}`;
 }
 
-async function publishToClawHub({ slug, id, prompt, title, controls, category, sourceDir, zipPath }) {
+async function publishToClawHub({ slug, id, prompt, title, controls, category, sourceDir, zipPath, agentTrace = [] }) {
   const publishId = `${slug}-${id.split("-").slice(-2).join("-")}`;
   const relativeDir = `games/${publishId}`;
   const targetDir = path.join(clawHubPublicDir, relativeDir);
@@ -242,6 +248,9 @@ async function publishToClawHub({ slug, id, prompt, title, controls, category, s
   const safePrompt = escapeHtml(prompt);
   const safeControls = escapeHtml(controls);
   const safeCategory = escapeHtml(category);
+  const safeTraceHtml = agentTrace.map((line) =>
+    `<li><strong>${escapeHtml(line.speaker || "Agent")}:</strong> ${escapeHtml(line.text || "")}</li>`
+  ).join("");
 
   await mkdir(gameDir, { recursive: true });
   await copyFile(path.join(sourceDir, "index.html"), path.join(gameDir, "index.html"));
@@ -254,6 +263,7 @@ async function publishToClawHub({ slug, id, prompt, title, controls, category, s
     safePrompt,
     safeControls,
     safeCategory,
+    safeTraceHtml,
     publishId
   }), "utf8");
 
@@ -266,7 +276,7 @@ async function publishToClawHub({ slug, id, prompt, title, controls, category, s
   };
 }
 
-function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory, publishId }) {
+function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory, safeTraceHtml, publishId }) {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
   <head>
@@ -288,6 +298,8 @@ function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory,
       .panel p { color: var(--muted); line-height: 1.6; }
       label { display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 900; text-transform: uppercase; }
       textarea { width: 100%; min-height: 150px; resize: vertical; border: 1px solid rgba(201,255,47,.22); border-radius: 8px; padding: 12px; background: rgba(3,4,3,.78); color: var(--ink); line-height: 1.55; }
+      ol { display: grid; gap: 8px; margin: 0; padding: 12px 12px 12px 30px; border: 1px solid rgba(117,244,255,.18); border-radius: 8px; background: rgba(117,244,255,.06); color: var(--muted); line-height: 1.45; }
+      ol strong { color: var(--cyan); }
       button, a { min-height: 48px; border-radius: 8px; border: 1px solid var(--neon); display: inline-flex; align-items: center; justify-content: center; padding: 0 14px; background: var(--neon); color: #061005; font-weight: 900; text-decoration: none; font: inherit; }
       .ghost { background: rgba(117,244,255,.09); color: var(--cyan); border-color: var(--cyan); }
       output { color: #f8dfff; min-height: 42px; padding: 12px; border: 1px solid rgba(255,79,216,.18); border-radius: 8px; background: rgba(255,79,216,.055); }
@@ -313,6 +325,7 @@ function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory,
           Game prompt
           <textarea id="prompt">${safePrompt}</textarea>
         </label>
+        <ol>${safeTraceHtml}</ol>
         <button id="copyPrompt" type="button">Copy prompt</button>
         <a class="ghost" href="./${publishId}.zip">Download zip</a>
         <output id="status">Controls: ${safeControls}</output>

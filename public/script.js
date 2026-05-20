@@ -5,6 +5,7 @@ const gamePreview = document.querySelector("#gamePreview");
 const agentLog = document.querySelector("#agentLog");
 const stageLabel = document.querySelector("#stageLabel");
 const stageTitle = document.querySelector("#stageTitle");
+const agentDialogue = document.querySelector("#agentDialogue");
 const statusPill = document.querySelector("#statusPill");
 const statusText = document.querySelector("#statusText");
 const categoryValue = document.querySelector("#categoryValue");
@@ -29,7 +30,8 @@ const state = {
   gameOver: false,
   lastTime: 0,
   jumpsUsed: 0,
-  request: null
+  request: null,
+  traceTimer: null
 };
 
 const floorY = () => canvas.height - 74;
@@ -46,6 +48,69 @@ const setStatus = (label, busy = false) => {
   statusText.textContent = label;
   statusPill.classList.toggle("busy", busy);
 };
+
+const shorten = (value, max = 86) => {
+  const compact = String(value || "").replace(/\s+/g, " ").trim();
+  return compact.length > max ? `${compact.slice(0, max - 1)}...` : compact;
+};
+
+const traceLine = (speaker, text, stateName = "") => ({ speaker, text, stateName });
+
+const setAgentTrace = (lines, activeIndex = lines.length - 1) => {
+  agentDialogue.replaceChildren();
+
+  lines.forEach((line, index) => {
+    const item = document.createElement("span");
+    item.className = "agent-line";
+    if (index === activeIndex) item.classList.add("active");
+    if (line.stateName) item.classList.add(line.stateName);
+
+    const speaker = document.createElement("strong");
+    speaker.textContent = `${line.speaker}:`;
+    item.append(speaker, ` ${line.text}`);
+    agentDialogue.append(item);
+  });
+};
+
+const stopAgentTraceAnimation = () => {
+  if (state.traceTimer) {
+    clearInterval(state.traceTimer);
+    state.traceTimer = null;
+  }
+};
+
+const animateAgentTrace = (lines) => {
+  stopAgentTraceAnimation();
+  let active = 0;
+  setAgentTrace(lines, active);
+  state.traceTimer = setInterval(() => {
+    active = Math.min(active + 1, lines.length - 1);
+    setAgentTrace(lines, active);
+    if (active === lines.length - 1) stopAgentTraceAnimation();
+  }, 650);
+};
+
+const normalizeTrace = (preview, fallbackPrompt = "") => {
+  if (Array.isArray(preview.agentTrace) && preview.agentTrace.length > 0) {
+    return preview.agentTrace.map((line, index) => traceLine(
+      line.speaker || (index === 0 ? "User" : "Agent"),
+      line.text || String(line),
+      index === preview.agentTrace.length - 1 ? "done" : ""
+    ));
+  }
+
+  return [
+    traceLine("User", fallbackPrompt ? shorten(fallbackPrompt) : "Random preview request"),
+    traceLine("Agent", `Selected ${labelFor(preview.category)} and built ${preview.title}.`, "done")
+  ];
+};
+
+const buildPendingTrace = (prompt, mode) => [
+  traceLine("User", prompt ? shorten(prompt) : "Random preview request"),
+  traceLine("Agent", mode === "publish" ? "Parsing prompt into game rules and visual direction." : "Picking a fresh playable 2D pattern."),
+  traceLine("Agent", "Choosing canvas sprites, color theme, controls, and scoring loop."),
+  traceLine("Agent", mode === "publish" ? "Packing files and publishing to StoryClaw /static/games/." : "Packing index.html, styles.css, and script.js for preview.")
+];
 
 const resetGame = () => {
   state.playerY = floorY() - player.size;
@@ -260,11 +325,13 @@ const showDemo = () => {
   publishedLink.classList.add("disabled");
   publishedLink.setAttribute("aria-disabled", "true");
   setStatus("Agent ready");
-  setLog("Demo reset. 点击右侧按钮生成新的 preview 小游戏。");
+  setAgentTrace([traceLine("Agent", "等待你的 prompt 或随机生成指令。", "active")], 0);
+  setLog("Demo reset. 输入 prompt 后，生成过程会显示在左侧标题区域。");
   resetGame();
 };
 
-const renderGeneratedPreview = (preview) => {
+const renderGeneratedPreview = (preview, sourcePrompt = "") => {
+  stopAgentTraceAnimation();
   canvas.hidden = true;
   gamePreview.hidden = false;
   gamePreview.src = `${preview.previewUrl}?t=${Date.now()}`;
@@ -279,6 +346,7 @@ const renderGeneratedPreview = (preview) => {
   publishedLink.classList.remove("disabled");
   publishedLink.removeAttribute("aria-disabled");
   setStatus("Preview ready");
+  setAgentTrace(normalizeTrace(preview, sourcePrompt));
   setLog(`Generated ${preview.title}. Zip contains: ${preview.files.join(", ")}.`);
 };
 
@@ -290,6 +358,7 @@ const generatePreview = async (category) => {
   state.request = new AbortController();
   setButtonsDisabled(true);
   setStatus("Generating", true);
+  animateAgentTrace(buildPendingTrace("", "preview"));
   setLog("后端正在生成三文件 zip，并解压到预览目录...");
 
   try {
@@ -307,7 +376,9 @@ const generatePreview = async (category) => {
     renderGeneratedPreview(await response.json());
   } catch (error) {
     if (error.name !== "AbortError") {
+      stopAgentTraceAnimation();
       setStatus("Error");
+      setAgentTrace([traceLine("Agent", error.message, "error")], 0);
       setLog(error.message);
     }
   } finally {
@@ -337,6 +408,10 @@ const toggleCustomPrompt = () => {
   customPromptPanel.hidden = !customPromptPanel.hidden;
   if (!customPromptPanel.hidden) {
     customGamePrompt.focus();
+    setAgentTrace([
+      traceLine("User", "在右侧输入 game prompt。"),
+      traceLine("Agent", "我会把 prompt 转成玩法、标题、素材和发布页面。", "active")
+    ], 1);
     setLog("输入你的游戏想法，会生成一个独立页面并发布到 StoryClaw hub 的 /static/games/ 路径。");
   }
 };
@@ -346,6 +421,7 @@ const publishCustomGame = async (event) => {
   const prompt = customGamePrompt.value.trim();
 
   if (!prompt) {
+    setAgentTrace([traceLine("Agent", "先写一句你想生成的游戏 prompt。", "error")], 0);
     setLog("先写一句你想生成的游戏 prompt。");
     customGamePrompt.focus();
     return;
@@ -353,6 +429,7 @@ const publishCustomGame = async (event) => {
 
   publishCustomButton.disabled = true;
   setStatus("Publishing", true);
+  animateAgentTrace(buildPendingTrace(prompt, "publish"));
   setLog("正在根据 prompt 生成游戏，并写入 StoryClaw hub public 目录...");
 
   try {
@@ -368,13 +445,15 @@ const publishCustomGame = async (event) => {
 
     const result = await response.json();
     const publicUrl = result.hubUrl || result.publishedUrl || result.subdomainUrl || result.previewUrl;
-    renderGeneratedPreview(result);
+    renderGeneratedPreview(result, prompt);
     gamePreview.src = `${publicUrl}?t=${Date.now()}`;
     publishedLink.href = publicUrl;
     setStatus("Published");
     setLog(`Published ${result.title} to StoryClaw hub: ${publicUrl}`);
   } catch (error) {
+    stopAgentTraceAnimation();
     setStatus("Error");
+    setAgentTrace([traceLine("Agent", error.message, "error")], 0);
     setLog(error.message);
   } finally {
     publishCustomButton.disabled = false;

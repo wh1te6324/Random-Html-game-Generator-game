@@ -169,6 +169,65 @@ a {
   border-bottom: 1px solid var(--line);
 }
 
+.title-stack {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.agent-dialogue {
+  display: grid;
+  gap: 5px;
+  width: min(100%, 720px);
+  min-height: 70px;
+  padding: 10px 12px;
+  border: 1px solid rgba(117, 244, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(2, 3, 2, 0.42);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.agent-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-line strong {
+  color: var(--cyan);
+  font-size: inherit;
+}
+
+.agent-line.active {
+  color: var(--ink);
+}
+
+.agent-line.active::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 7px;
+  border-radius: 50%;
+  background: var(--neon);
+  box-shadow: 0 0 14px var(--neon);
+}
+
+.agent-line.done strong {
+  color: var(--neon);
+}
+
+.agent-line.error {
+  color: #ffd1df;
+}
+
+.agent-line.error strong {
+  color: var(--pink);
+}
+
 .game-toolbar p,
 .eyebrow {
   margin: 0 0 4px;
@@ -475,6 +534,14 @@ textarea:focus {
   .game-hud {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .agent-dialogue {
+    min-height: 96px;
+  }
+
+  .agent-line {
+    white-space: normal;
   }
 
   .status-pill {

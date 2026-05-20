@@ -34,10 +34,14 @@ const spriteKits = [
   { name: "Dungeon Neon", player: "tiny-knight", enemy: "slime-eye", collectible: "gem-cluster", decor: ["rune", "torch", "crack"] }
 ];
 
-export async function createPreviewGameZip({ category, id, outputDir }) {
-  const pickedCategory = categories.includes(category) ? category : randomItem(categories);
+export async function createPreviewGameZip({ category, id, outputDir, prompt = "" }) {
+  const promptProfile = analyzePrompt(prompt);
+  const pickedCategory = categories.includes(category)
+    ? category
+    : promptProfile.category || randomItem(categories);
   const seed = Math.floor(Math.random() * 900000) + 100000;
-  const game = buildGame(pickedCategory, seed);
+  const game = buildGame(pickedCategory, seed, promptProfile);
+  const agentTrace = buildAgentTrace(prompt, game, promptProfile);
   const files = {
     "index.html": buildHtml(game),
     "styles.css": buildCss(game),
@@ -64,6 +68,9 @@ export async function createPreviewGameZip({ category, id, outputDir }) {
     title: game.title,
     category: pickedCategory,
     controls: game.controls,
+    promptSummary: game.promptSummary,
+    agentTrace,
+    generationNotes: game.generationNotes,
     zipPath,
     zipUrl: `/generated-games/${id}/${id}.zip`,
     previewUrl: `/previews/${id}/index.html`,
@@ -108,10 +115,128 @@ export function slugify(value) {
     .slice(0, 32) || "random";
 }
 
-function buildGame(category, seed) {
+function analyzePrompt(prompt) {
+  const raw = String(prompt || "").trim();
+  const value = raw.toLowerCase();
+  if (!raw) return {};
+
+  const categoryRules = [
+    ["pong-duel", ["pong", "\u4e52\u4e53", "\u5bf9\u6253", "\u53cc\u4eba\u5f39\u7403"]],
+    ["billiards-break", ["billiard", "pool", "\u53f0\u7403", "\u684c\u7403", "\u649e\u7403", "\u7403\u888b", "\u6bcd\u7403", "8 ball", "eight ball"]],
+    ["snake-trail", ["snake", "\u8d2a\u5403\u86c7", "trail", "\u8f68\u8ff9"]],
+    ["pulse-defense", ["tower", "defense", "\u5854\u9632", "\u9632\u5b88", "\u70ae\u5854"]],
+    ["sky-jumper", ["jump", "platform", "\u8df3\u8dc3", "\u5e73\u53f0", "\u8dd1\u9177"]],
+    ["target-clicker", ["click", "tap", "\u70b9\u51fb", "\u53cd\u5e94", "\u5c04\u51fb", "\u6253\u9776"]],
+    ["orb-collector", ["collect", "coin", "orb", "\u6536\u96c6", "\u91d1\u5e01", "\u5b9d\u77f3"]],
+    ["lane-runner", ["lane", "runner", "\u8d5b\u9053", "\u6362\u9053", "\u8eb2\u907f"]],
+    ["orbit-guard", ["orbit", "shield", "\u8f68\u9053", "\u62a4\u76fe", "\u73af\u7ed5"]]
+  ];
+  const category = categoryRules.find(([, keywords]) => hasAny(value, keywords))?.[0];
+
+  const themeName = pickPromptTheme(value);
+  const spriteKitName = pickPromptSpriteKit(value, category);
+
+  return {
+    raw,
+    category,
+    themeName,
+    spriteKitName,
+    title: promptTitle(category, value),
+    subtitle: `Prompt-led: ${shortenPrompt(raw, 88)}`,
+    summary: shortenPrompt(raw, 110)
+  };
+}
+
+function pickPromptTheme(value) {
+  if (hasAny(value, ["neon", "acid", "\u9713\u8679", "\u8367\u5149"])) return "Acid Arcade";
+  if (hasAny(value, ["space", "star", "meteor", "\u592a\u7a7a", "\u661f", "\u9668\u77f3"])) return "Violet Byte";
+  if (hasAny(value, ["ocean", "water", "bubble", "reef", "\u6d77", "\u6c34", "\u6ce1\u6ce1"])) return "Aqua Signal";
+  if (hasAny(value, ["fire", "sun", "desert", "\u706b", "\u592a\u9633", "\u6c99\u6f20"])) return "Solar Pop";
+  if (hasAny(value, ["pool", "billiard", "\u53f0\u7403", "\u684c\u7403"])) return "Cherry Grid";
+  return "";
+}
+
+function pickPromptSpriteKit(value, category) {
+  if (category === "billiards-break" || hasAny(value, ["pool", "billiard", "\u53f0\u7403", "\u684c\u7403"])) return "Pocket Table";
+  if (hasAny(value, ["space", "rocket", "meteor", "\u592a\u7a7a", "\u706b\u7bad", "\u9668\u77f3"])) return "Space Junk";
+  if (hasAny(value, ["ocean", "water", "submarine", "\u6d77", "\u6c34", "\u6f5c\u8247"])) return "Bubble Reef";
+  if (hasAny(value, ["bug", "virus", "cyber", "data", "\u75c5\u6bd2", "\u6570\u636e", "\u8d5b\u535a"])) return "Bug Circuit";
+  if (hasAny(value, ["sky", "cloud", "carnival", "\u5929\u7a7a", "\u4e91", "\u5609\u5e74\u534e"])) return "Sky Carnival";
+  if (hasAny(value, ["dungeon", "knight", "magic", "\u5730\u7262", "\u9a91\u58eb", "\u9b54\u6cd5"])) return "Dungeon Neon";
+  return "";
+}
+
+function promptTitle(category, value) {
+  const descriptor = hasAny(value, ["neon", "\u9713\u8679", "\u8367\u5149"])
+    ? "Neon"
+    : hasAny(value, ["space", "\u592a\u7a7a", "\u661f"])
+      ? "Star"
+      : hasAny(value, ["ocean", "\u6d77", "\u6c34"])
+        ? "Aqua"
+        : "AI";
+  const nouns = {
+    "asteroid-dodge": "Dodge Run",
+    "orb-collector": "Orb Hunt",
+    "target-clicker": "Target Burst",
+    "snake-trail": "Trail Snake",
+    "lane-runner": "Lane Rush",
+    "orbit-guard": "Orbit Shield",
+    "paddle-breaker": "Paddle Break",
+    "pong-duel": "Pong Duel",
+    "billiards-break": "Pocket Break",
+    "sky-jumper": "Sky Jump",
+    "pulse-defense": "Tower Pulse"
+  };
+  return `${descriptor} ${nouns[category] || "Game"}`;
+}
+
+function buildAgentTrace(prompt, game, promptProfile) {
+  return [
+    {
+      speaker: "User",
+      text: promptProfile.raw ? shortenPrompt(promptProfile.raw, 96) : "Random preview request"
+    },
+    {
+      speaker: "Agent",
+      text: `Mapped prompt to ${game.category} with ${game.spriteKit} assets.`
+    },
+    {
+      speaker: "Agent",
+      text: `Picked ${game.theme.name} colors and wrote controls: ${game.controls}`
+    },
+    {
+      speaker: "Agent",
+      text: `Generated ${game.title}, zipped index.html/styles.css/script.js, and prepared preview.`
+    }
+  ];
+}
+
+function hasAny(value, keywords) {
+  return keywords.some((keyword) => value.includes(keyword));
+}
+
+function shortenPrompt(value, max) {
+  const compact = String(value || "").replace(/\s+/g, " ").trim();
+  return compact.length > max ? `${compact.slice(0, max - 3)}...` : compact;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function buildGame(category, seed, promptProfile = {}) {
   const rng = mulberry32(seed);
-  const theme = themes[Math.floor(rng() * themes.length)];
-  const spriteKit = spriteKits[Math.floor(rng() * spriteKits.length)];
+  const theme = promptProfile.themeName
+    ? themes.find((item) => item.name === promptProfile.themeName) || randomItem(themes)
+    : themes[Math.floor(rng() * themes.length)];
+  const spriteKit = promptProfile.spriteKitName
+    ? spriteKits.find((item) => item.name === promptProfile.spriteKitName) || randomItem(spriteKits)
+    : spriteKits[Math.floor(rng() * spriteKits.length)];
   const playerShape = spriteKit.player;
   const enemyShape = spriteKit.enemy;
   const collectibleShape = spriteKit.collectible;
@@ -136,13 +261,23 @@ function buildGame(category, seed) {
     "sky-jumper": ["Sky Hop", "chain platforms and collect sparks", "Press Space/ArrowUp or tap to double jump."],
     "pulse-defense": ["Pulse Defense", "place emitters to stop the wave", "Click empty cells to place towers."]
   };
-  const [title, subtitle, controls] = presets[category];
+  const [baseTitle, baseSubtitle, controls] = presets[category];
+  const title = promptProfile.raw ? promptTitle(category, promptProfile.raw.toLowerCase()) : baseTitle;
+  const subtitle = promptProfile.subtitle || baseSubtitle;
+  const promptSummary = promptProfile.summary || "Randomized quick preview";
+  const generationNotes = [
+    `mode=${category}`,
+    `theme=${theme.name}`,
+    `assets=${spriteKit.name}`
+  ];
 
   return {
     title,
     subtitle,
     category,
     controls,
+    promptSummary,
+    generationNotes,
     theme,
     seed,
     playerShape,
@@ -154,21 +289,25 @@ function buildGame(category, seed) {
 }
 
 function buildHtml(game) {
+  const safeTitle = escapeHtml(game.title);
+  const safeTheme = escapeHtml(game.theme.name);
+  const safeSubtitle = escapeHtml(game.subtitle);
+  const safeControls = escapeHtml(game.controls);
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${game.title}</title>
+    <title>${safeTitle}</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="game-shell">
       <header>
         <div>
-          <p>${game.theme.name} preview</p>
-          <h1>${game.title}</h1>
-          <span>${game.subtitle}</span>
+          <p>${safeTheme} preview</p>
+          <h1>${safeTitle}</h1>
+          <span>${safeSubtitle}</span>
         </div>
         <button id="restartButton" type="button">Restart</button>
       </header>
@@ -176,7 +315,7 @@ function buildHtml(game) {
       <footer>
         <span>Score <strong id="scoreValue">0</strong></span>
         <span>Best <strong id="bestValue">0</strong></span>
-        <span id="hintValue">${game.controls}</span>
+        <span id="hintValue">${safeControls}</span>
       </footer>
     </main>
     <script src="./script.js"></script>
