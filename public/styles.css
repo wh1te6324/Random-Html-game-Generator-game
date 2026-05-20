@@ -182,7 +182,7 @@ a {
   display: grid;
   gap: 10px;
   width: min(100%, 900px);
-  min-height: 148px;
+  min-height: 168px;
   padding: 13px 14px 14px;
   overflow: hidden;
   border: 1px solid rgba(117, 244, 255, 0.28);
@@ -263,22 +263,22 @@ a {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 7px;
-  min-height: 92px;
+  gap: 6px;
+  min-height: 104px;
   color: var(--muted);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
-  font-size: 12.5px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.38;
 }
 
 .agent-line {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
   align-items: start;
-  overflow: hidden;
-  min-height: 22px;
-  padding: 2px 0;
+  overflow: visible;
+  min-height: 20px;
+  padding: 1px 0;
 }
 
 .trace-step {
@@ -295,9 +295,10 @@ a {
 }
 
 .trace-body {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .agent-line strong {
@@ -655,10 +656,6 @@ textarea:focus {
   .agent-console {
     width: 100%;
     min-height: 180px;
-  }
-
-  .trace-body {
-    white-space: normal;
   }
 
   .status-pill {

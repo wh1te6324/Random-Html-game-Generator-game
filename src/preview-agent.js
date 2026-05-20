@@ -142,8 +142,8 @@ function analyzePrompt(prompt) {
     themeName,
     spriteKitName,
     title: promptTitle(category, value),
-    subtitle: `Prompt-led: ${shortenPrompt(raw, 88)}`,
-    summary: shortenPrompt(raw, 110)
+    subtitle: `Prompt-led: ${raw}`,
+    summary: raw
   };
 }
 
@@ -194,7 +194,7 @@ function buildAgentTrace(prompt, game, promptProfile) {
   return [
     {
       speaker: "User",
-      text: promptProfile.raw ? shortenPrompt(promptProfile.raw, 96) : "Random preview request"
+      text: promptProfile.raw || "Random preview request"
     },
     {
       speaker: "Agent",

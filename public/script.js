@@ -49,10 +49,7 @@ const setStatus = (label, busy = false) => {
   statusPill.classList.toggle("busy", busy);
 };
 
-const shorten = (value, max = 86) => {
-  const compact = String(value || "").replace(/\s+/g, " ").trim();
-  return compact.length > max ? `${compact.slice(0, max - 1)}...` : compact;
-};
+const cleanTraceText = (value) => String(value || "").replace(/\s+/g, " ").trim();
 
 const traceLine = (speaker, text, stateName = "") => ({ speaker, text, stateName });
 
@@ -108,13 +105,13 @@ const normalizeTrace = (preview, fallbackPrompt = "") => {
   }
 
   return [
-    traceLine("User", fallbackPrompt ? shorten(fallbackPrompt) : "Random preview request"),
+    traceLine("User", fallbackPrompt ? cleanTraceText(fallbackPrompt) : "Random preview request"),
     traceLine("Agent", `Selected ${labelFor(preview.category)} and built ${preview.title}.`, "done")
   ];
 };
 
 const buildPendingTrace = (prompt, mode) => [
-  traceLine("User", prompt ? shorten(prompt) : "Random preview request"),
+  traceLine("User", prompt ? cleanTraceText(prompt) : "Random preview request"),
   traceLine("Agent", mode === "publish" ? "Parsing prompt into game rules and visual direction." : "Picking a fresh playable 2D pattern."),
   traceLine("Agent", "Choosing canvas sprites, color theme, controls, and scoring loop."),
   traceLine("Agent", mode === "publish" ? "Packing files and publishing to StoryClaw /static/games/." : "Packing index.html, styles.css, and script.js for preview.")
