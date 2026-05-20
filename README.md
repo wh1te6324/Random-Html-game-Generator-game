@@ -23,6 +23,48 @@ Open:
 http://127.0.0.1:4180/
 ```
 
+## Run On A StoryClaw Machine
+
+This app has two runtime surfaces:
+
+- The Node backend serves the generator UI and handles `POST /api/publish-custom-game`.
+- The StoryClaw static hub serves finished published games from `~/.claw/hub/public` at `/static/...`.
+
+On the StoryClaw machine:
+
+```bash
+git clone https://github.com/wh1te6324/Random-Html-game-Generator-game.git
+cd Random-Html-game-Generator-game
+
+export PORT=4180
+export CLAW_HUB_PUBLIC_DIR="$HOME/.claw/hub/public"
+export CLAW_DEVICE_ORIGIN="https://device-<id>.clawln.app"
+
+npm start
+```
+
+If your tunnel points directly at this Node server instead of the static hub, set:
+
+```bash
+export CLAW_HUB_PUBLIC_ORIGIN="https://your-public-generator-domain"
+```
+
+When a user submits a custom prompt, the backend writes:
+
+```text
+~/.claw/hub/public/games/<generated-id>/index.html
+~/.claw/hub/public/games/<generated-id>/game/index.html
+~/.claw/hub/public/games/<generated-id>/game/styles.css
+~/.claw/hub/public/games/<generated-id>/game/script.js
+~/.claw/hub/public/games/<generated-id>/<generated-id>.zip
+```
+
+The returned public URL is:
+
+```text
+https://device-<id>.clawln.app/static/games/<generated-id>/index.html
+```
+
 ## Preview Flow
 
 1. Click the random generation button.

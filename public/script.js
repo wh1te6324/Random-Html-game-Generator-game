@@ -275,7 +275,7 @@ const renderGeneratedPreview = (preview) => {
   zipDownload.href = preview.zipUrl;
   zipDownload.classList.remove("disabled");
   zipDownload.removeAttribute("aria-disabled");
-  publishedLink.href = preview.publishedUrl || preview.previewUrl;
+  publishedLink.href = preview.hubUrl || preview.publishedUrl || preview.previewUrl;
   publishedLink.classList.remove("disabled");
   publishedLink.removeAttribute("aria-disabled");
   setStatus("Preview ready");
@@ -337,7 +337,7 @@ const toggleCustomPrompt = () => {
   customPromptPanel.hidden = !customPromptPanel.hidden;
   if (!customPromptPanel.hidden) {
     customGamePrompt.focus();
-    setLog("输入你的游戏想法，会生成一个独立发布页。当前 Worker 先用 prompt 选择模板和素材包。");
+    setLog("输入你的游戏想法，会生成一个独立页面并发布到 StoryClaw hub 的 /static/games/ 路径。");
   }
 };
 
@@ -353,7 +353,7 @@ const publishCustomGame = async (event) => {
 
   publishCustomButton.disabled = true;
   setStatus("Publishing", true);
-  setLog("正在根据 prompt 生成游戏，并发布到独立页面...");
+  setLog("正在根据 prompt 生成游戏，并写入 StoryClaw hub public 目录...");
 
   try {
     const response = await fetch("/api/publish-custom-game", {
@@ -367,16 +367,12 @@ const publishCustomGame = async (event) => {
     }
 
     const result = await response.json();
-    const publicUrl = result.subdomainUrl || result.publishedUrl;
+    const publicUrl = result.hubUrl || result.publishedUrl || result.subdomainUrl || result.previewUrl;
     renderGeneratedPreview(result);
     gamePreview.src = `${publicUrl}?t=${Date.now()}`;
     publishedLink.href = publicUrl;
     setStatus("Published");
-    setLog(
-      result.subdomainUrl
-        ? `Published ${result.title} at ${result.subdomainUrl}.`
-        : `Published ${result.title}. Subdomain slug ${result.slug} is ready; bind a custom base domain to enable it.`
-    );
+    setLog(`Published ${result.title} to StoryClaw hub: ${publicUrl}`);
   } catch (error) {
     setStatus("Error");
     setLog(error.message);
