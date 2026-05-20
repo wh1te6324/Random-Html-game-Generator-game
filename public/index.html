@@ -34,8 +34,17 @@
             <div class="game-toolbar">
               <div class="title-stack">
                 <p id="stageLabel">Agent preview</p>
-                <div class="agent-dialogue" id="agentDialogue" aria-live="polite">
-                  <span class="agent-line active">Agent: 等待你的 prompt 或随机生成指令。</span>
+                <div class="agent-console" aria-label="Agent generation console">
+                  <div class="console-header">
+                    <span class="console-kicker">Agent Thinking Console</span>
+                    <span class="console-state">live trace</span>
+                  </div>
+                  <div class="agent-dialogue" id="agentDialogue" aria-live="polite">
+                    <div class="agent-line active">
+                      <span class="trace-step">00</span>
+                      <span class="trace-body"><strong>Agent:</strong> 等待你的 prompt 或随机生成指令。</span>
+                    </div>
+                  </div>
                 </div>
                 <h1 id="stageTitle">Neon Dash</h1>
               </div>

@@ -65,9 +65,17 @@ const setAgentTrace = (lines, activeIndex = lines.length - 1) => {
     if (index === activeIndex) item.classList.add("active");
     if (line.stateName) item.classList.add(line.stateName);
 
+    const step = document.createElement("span");
+    step.className = "trace-step";
+    step.textContent = String(index + 1).padStart(2, "0");
+
+    const body = document.createElement("span");
+    body.className = "trace-body";
+
     const speaker = document.createElement("strong");
     speaker.textContent = `${line.speaker}:`;
-    item.append(speaker, ` ${line.text}`);
+    body.append(speaker, ` ${line.text}`);
+    item.append(step, body);
     agentDialogue.append(item);
   });
 };
