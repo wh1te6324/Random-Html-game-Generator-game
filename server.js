@@ -248,8 +248,8 @@ async function publishToClawHub({ slug, id, prompt, title, controls, category, s
   const safePrompt = escapeHtml(prompt);
   const safeControls = escapeHtml(controls);
   const safeCategory = escapeHtml(category);
-  const safeTraceHtml = agentTrace.map((line) =>
-    `<li><strong>${escapeHtml(line.speaker || "Agent")}:</strong> ${escapeHtml(line.text || "")}</li>`
+  const safeTraceHtml = agentTrace.map((line, index) =>
+    `<div class="trace-row"><span class="trace-step">${String(index + 1).padStart(2, "0")}</span><span class="trace-body"><strong>${escapeHtml(line.speaker || "Agent")}:</strong> ${escapeHtml(line.text || "")}</span></div>`
   ).join("");
 
   await mkdir(gameDir, { recursive: true });
@@ -284,34 +284,58 @@ function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory,
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${safeTitle} - StoryClaw Game</title>
     <style>
-      :root { color-scheme: dark; --neon: #c9ff2f; --cyan: #75f4ff; --ink: #f2f8ef; --muted: #96a397; }
+      :root { color-scheme: dark; --neon: #c9ff2f; --cyan: #75f4ff; --ink: #f2f8ef; --muted: #96a397; --pink: #ff4f7b; }
       * { box-sizing: border-box; }
       body { margin: 0; min-height: 100vh; background: linear-gradient(rgba(201,255,47,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(117,244,255,.035) 1px, transparent 1px), #020302; background-size: 44px 44px, 44px 44px, auto; color: var(--ink); font-family: Inter, system-ui, sans-serif; }
       main { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 22px; padding: 22px; }
       .stage, .panel { border: 1px solid rgba(201,255,47,.24); border-radius: 8px; background: rgba(8,13,9,.86); box-shadow: 0 28px 80px rgba(0,0,0,.46); overflow: hidden; }
-      header { padding: 18px; border-bottom: 1px solid rgba(201,255,47,.18); }
+      .stage { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+      header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 18px; padding: 18px; border-bottom: 1px solid rgba(201,255,47,.18); }
+      .title-stack { display: grid; gap: 10px; min-width: 0; }
       p, h1 { margin: 0; }
       .eyebrow { color: var(--neon); font-size: 12px; font-weight: 900; text-transform: uppercase; }
-      h1 { margin-top: 6px; color: var(--ink); font-size: clamp(34px, 6vw, 72px); line-height: .92; }
-      iframe { display: block; width: 100%; height: calc(100vh - 160px); min-height: 620px; border: 0; background: #020302; }
+      h1 { color: var(--ink); font-size: clamp(34px, 6vw, 72px); line-height: .92; }
+      iframe { display: block; width: 100%; height: calc(100vh - 320px); min-height: 520px; border: 0; background: #020302; }
+      .agent-console { position: relative; display: grid; gap: 10px; width: min(100%, 900px); min-height: 168px; padding: 13px 14px 14px; overflow: hidden; border: 1px solid rgba(117,244,255,.28); border-radius: 8px; background: linear-gradient(rgba(117,244,255,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(201,255,47,.045) 1px, transparent 1px), linear-gradient(180deg, rgba(5,16,15,.94), rgba(2,3,2,.72)); background-size: 18px 18px, 18px 18px, auto; box-shadow: inset 0 0 0 1px rgba(201,255,47,.045), inset 0 -34px 60px rgba(117,244,255,.045), 0 18px 40px rgba(0,0,0,.22); }
+      .agent-console::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, transparent 0%, rgba(201,255,47,.05) 48%, transparent 50%); background-size: 100% 9px; opacity: .42; }
+      .agent-console::after { content: ""; position: absolute; top: 0; left: -35%; width: 35%; height: 100%; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(117,244,255,.12), transparent); animation: consoleSweep 4.2s linear infinite; }
+      .console-header, .trace-list { position: relative; z-index: 1; }
+      .console-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; color: var(--neon); font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+      .console-kicker { display: inline-flex; align-items: center; gap: 8px; }
+      .console-kicker::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 16px var(--neon); }
+      .console-state { padding: 4px 8px; border: 1px solid rgba(117,244,255,.3); border-radius: 999px; color: var(--cyan); background: rgba(117,244,255,.06); white-space: nowrap; }
+      .trace-list { display: grid; gap: 6px; min-height: 104px; color: var(--muted); font-family: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace; font-size: 11px; line-height: 1.38; }
+      .trace-row { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; align-items: start; min-height: 20px; }
+      .trace-step { display: inline-grid; min-width: 30px; height: 22px; place-items: center; border: 1px solid var(--neon); border-radius: 6px; color: #061005; background: var(--neon); box-shadow: 0 0 16px rgba(201,255,47,.28); font-size: 11px; font-weight: 900; }
+      .trace-body { white-space: normal; word-break: break-word; }
+      .trace-body strong { color: var(--cyan); font-size: inherit; }
       .panel { display: grid; align-content: start; gap: 16px; padding: 20px; }
       .panel p { color: var(--muted); line-height: 1.6; }
       label { display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 900; text-transform: uppercase; }
       textarea { width: 100%; min-height: 150px; resize: vertical; border: 1px solid rgba(201,255,47,.22); border-radius: 8px; padding: 12px; background: rgba(3,4,3,.78); color: var(--ink); line-height: 1.55; }
-      ol { display: grid; gap: 8px; margin: 0; padding: 12px 12px 12px 30px; border: 1px solid rgba(117,244,255,.18); border-radius: 8px; background: rgba(117,244,255,.06); color: var(--muted); line-height: 1.45; }
-      ol strong { color: var(--cyan); }
       button, a { min-height: 48px; border-radius: 8px; border: 1px solid var(--neon); display: inline-flex; align-items: center; justify-content: center; padding: 0 14px; background: var(--neon); color: #061005; font-weight: 900; text-decoration: none; font: inherit; }
       .ghost { background: rgba(117,244,255,.09); color: var(--cyan); border-color: var(--cyan); }
       output { color: #f8dfff; min-height: 42px; padding: 12px; border: 1px solid rgba(255,79,216,.18); border-radius: 8px; background: rgba(255,79,216,.055); }
-      @media (max-width: 980px) { main { grid-template-columns: 1fr; } iframe { min-height: 500px; height: 66vh; } }
+      @keyframes consoleSweep { from { transform: translateX(0); } to { transform: translateX(390%); } }
+      @media (max-width: 980px) { main { grid-template-columns: 1fr; } header { grid-template-columns: 1fr; } iframe { min-height: 500px; height: 66vh; } }
     </style>
   </head>
   <body>
     <main>
       <section class="stage">
         <header>
-          <p class="eyebrow">StoryClaw published game / ${safeCategory}</p>
-          <h1>${safeTitle}</h1>
+          <div class="title-stack">
+            <p class="eyebrow">StoryClaw published game / ${safeCategory}</p>
+            <div class="agent-console" aria-label="Agent generation console">
+              <div class="console-header">
+                <span class="console-kicker">Agent Thinking Console</span>
+                <span class="console-state">published trace</span>
+              </div>
+              <div class="trace-list">${safeTraceHtml}</div>
+            </div>
+            <h1>${safeTitle}</h1>
+          </div>
+          <a href="./${publishId}.zip">Download zip</a>
         </header>
         <iframe src="./game/index.html" title="${safeTitle}" sandbox="allow-scripts allow-same-origin allow-pointer-lock"></iframe>
       </section>
@@ -325,7 +349,6 @@ function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory,
           Game prompt
           <textarea id="prompt">${safePrompt}</textarea>
         </label>
-        <ol>${safeTraceHtml}</ol>
         <button id="copyPrompt" type="button">Copy prompt</button>
         <a class="ghost" href="./${publishId}.zip">Download zip</a>
         <output id="status">Controls: ${safeControls}</output>

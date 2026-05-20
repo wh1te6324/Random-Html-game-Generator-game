@@ -451,7 +451,6 @@ const publishCustomGame = async (event) => {
     const result = await response.json();
     const publicUrl = result.hubUrl || result.publishedUrl || result.subdomainUrl || result.previewUrl;
     renderGeneratedPreview(result, prompt);
-    gamePreview.src = `${publicUrl}?t=${Date.now()}`;
     publishedLink.href = publicUrl;
     setStatus("Published");
     setLog(`Published ${result.title} to StoryClaw hub: ${publicUrl}`);
