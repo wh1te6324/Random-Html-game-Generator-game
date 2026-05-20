@@ -367,11 +367,16 @@ const publishCustomGame = async (event) => {
     }
 
     const result = await response.json();
+    const publicUrl = result.subdomainUrl || result.publishedUrl;
     renderGeneratedPreview(result);
-    gamePreview.src = `${result.publishedUrl}?t=${Date.now()}`;
-    publishedLink.href = result.publishedUrl;
+    gamePreview.src = `${publicUrl}?t=${Date.now()}`;
+    publishedLink.href = publicUrl;
     setStatus("Published");
-    setLog(`Published ${result.title} at ${result.publishedUrl}. Subdomain-ready slug: ${result.slug}.`);
+    setLog(
+      result.subdomainUrl
+        ? `Published ${result.title} at ${result.subdomainUrl}.`
+        : `Published ${result.title}. Subdomain slug ${result.slug} is ready; bind a custom base domain to enable it.`
+    );
   } catch (error) {
     setStatus("Error");
     setLog(error.message);
