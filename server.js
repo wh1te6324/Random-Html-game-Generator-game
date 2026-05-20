@@ -37,6 +37,15 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === "GET" && url.pathname === "/api/health") {
+      sendJson(response, 200, {
+        status: "ok",
+        app: "random-html-game-generator",
+        hubPublicDir: clawHubPublicDir
+      });
+      return;
+    }
+
     await serveStatic(url.pathname, response);
   } catch (error) {
     sendJson(response, 500, { error: error.message || "Unexpected server error" });

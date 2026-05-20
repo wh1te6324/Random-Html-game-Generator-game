@@ -30,23 +30,54 @@ This app has two runtime surfaces:
 - The Node backend serves the generator UI and handles `POST /api/publish-custom-game`.
 - The StoryClaw static hub serves finished published games from `~/.claw/hub/public` at `/static/...`.
 
+The easiest path is to run the StoryClaw setup helper. It follows the
+same domain registration rule used by the stock dashboard agents:
+generate/read a stable 12-character device id, call
+`https://api.clawln.app/devices/register` with `{ serial, port }`, then
+start `cloudflared` with the returned tunnel token.
+
 On the StoryClaw machine:
 
 ```bash
 git clone https://github.com/wh1te6324/Random-Html-game-Generator-game.git
 cd Random-Html-game-Generator-game
 
-export PORT=4180
-export CLAW_HUB_PUBLIC_DIR="$HOME/.claw/hub/public"
-export CLAW_DEVICE_ORIGIN="https://device-<id>.clawln.app"
+bash storyclaw/setup.sh
+```
 
+The printed URL is the public generator page:
+
+```text
+https://device-<serial>.clawln.app/
+```
+
+Published games appear under:
+
+```text
+https://device-<serial>.clawln.app/static/games/<generated-id>/index.html
+```
+
+Manual run is also possible:
+
+```bash
+export PORT=7330
+export HOST=127.0.0.1
+export CLAW_HUB_PUBLIC_DIR="$HOME/.claw/hub/public"
+export CLAW_HUB_PUBLIC_ORIGIN="https://device-<serial>.clawln.app"
 npm start
 ```
 
-If your tunnel points directly at this Node server instead of the static hub, set:
+Because this app needs `POST /api/publish-custom-game`, the tunnel must
+point at this Node backend, not at a pure static-only hub. The Node
+backend still serves `~/.claw/hub/public` at `/static/`, so dashboard
+pages written by other agents remain readable as static paths.
+
+Useful overrides:
 
 ```bash
-export CLAW_HUB_PUBLIC_ORIGIN="https://your-public-generator-domain"
+export CLAW_DEVICE_SERIAL="ABC123XYZ789"  # force the device domain id
+export CLAW_GAME_PORT=7330               # force the tunnel ingress port
+export CLAW_HUB_PUBLIC="$HOME/.claw/hub/public"
 ```
 
 When a user submits a custom prompt, the backend writes:
