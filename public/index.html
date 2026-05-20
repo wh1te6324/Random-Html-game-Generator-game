@@ -3,80 +3,104 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Random HTML Game Generator</title>
+    <title>AI Mini Game Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="page-shell">
-      <section class="studio-frame" aria-label="AI game preview generator">
+      <section class="studio-frame" aria-label="AI mini game workspace">
         <div class="game-column">
           <header class="brand-row">
-            <a class="brand" href="#" aria-label="Random HTML Game Generator home">
+            <a class="brand" href="#" aria-label="AI Mini Game Lab home">
               <span class="brand-mark">AI</span>
               <span>
-                <strong>Random HTML Game Generator</strong>
-                <small>Preview agent for simple 2D browser games</small>
+                <strong>AI Mini Game Lab</strong>
+                <small>Agent-powered HTML games</small>
               </span>
             </a>
-            <div class="status-pill" id="statusPill">
+            <div class="status-pill" id="statusPill" aria-label="Current build status">
               <span></span>
-              <strong id="statusText">Ready</strong>
+              <strong id="statusText">Agent ready</strong>
             </div>
           </header>
 
-          <section class="preview-stage" aria-label="Generated game preview">
-            <div class="preview-toolbar">
+          <section class="game-stage" aria-label="Playable HTML mini game">
+            <div class="game-toolbar">
               <div>
-                <p>Generated preview</p>
-                <h1 id="previewTitle">等待生成</h1>
+                <p id="stageLabel">Agent preview</p>
+                <h1 id="stageTitle">Neon Dash</h1>
               </div>
-              <a class="zip-link disabled" id="zipLink" href="#" aria-disabled="true">Zip</a>
+              <button class="ghost-button" id="resetPreviewButton" type="button">Reset demo</button>
             </div>
 
-            <div class="iframe-shell">
+            <div class="preview-shell">
+              <canvas id="gameCanvas" width="960" height="540" aria-label="Neon Dash playable canvas"></canvas>
               <iframe
-                id="previewFrame"
+                id="gamePreview"
                 title="Generated HTML game preview"
-                sandbox="allow-scripts allow-same-origin"
+                sandbox="allow-scripts allow-same-origin allow-pointer-lock"
+                hidden
               ></iframe>
-              <div class="empty-state" id="emptyState">
-                <strong>点击右侧按钮生成一个 preview 小游戏</strong>
-                <span>后端会生成三文件 zip，解压后放进这个大边框里运行。</span>
-              </div>
             </div>
 
-            <div class="game-hud">
-              <span>Category <strong id="categoryValue">None</strong></span>
-              <span>Files <strong>index / css / js</strong></span>
-              <span id="controlsValue">Ready for a random 2D game.</span>
+            <div class="game-hud" aria-label="Game stats">
+              <span>Category <strong id="categoryValue">Demo</strong></span>
+              <span>Files <strong id="filesValue">index / css / js</strong></span>
+              <span id="controlsValue">Space / tap to double jump.</span>
             </div>
           </section>
         </div>
 
-        <aside class="agent-panel" aria-label="Preview generation controls">
-          <div class="agent-copy">
+        <aside class="share-panel" aria-label="Agent generation controls">
+          <div class="share-copy">
             <p class="eyebrow">Preview Agent</p>
-            <h2>按钮式生成小游戏</h2>
+            <h2>按钮生成小游戏 preview</h2>
             <p>
-              每次点击都会生成一个新的简单 2D HTML 游戏，打成完整 zip，然后解压到左侧预览区域。
+              每次点击都会让后端生成一个完整三文件 zip，解压后直接放到左侧大边框里运行。
             </p>
           </div>
 
-          <div class="button-grid" id="buttonGrid">
-            <button class="generate-button primary large-generate" type="button" data-category="random">
+          <div class="preview-buttons" id="previewButtons">
+            <button class="generate-button large-generate" type="button" data-category="random">
               随机生成 preview 小游戏
+            </button>
+            <button class="share-button custom-game-button" id="customGameButton" type="button">
+              <span class="button-icon">✦</span>
+              生成你自己的游戏
             </button>
           </div>
 
-          <div class="agent-card">
-            <span>Output contract</span>
-            <strong>完整环境 zip</strong>
-            <p>zip 中只包含 `index.html`、`styles.css`、`script.js`。预览时由后端解压并托管。</p>
-          </div>
+          <form class="custom-prompt-panel" id="customPromptPanel" hidden>
+            <label class="field-stack" for="customGamePrompt">
+              <span>Game prompt</span>
+              <textarea
+                id="customGamePrompt"
+                rows="5"
+                placeholder="例如：做一个霓虹台球小游戏，玩家拖拽母球击打目标球，有分数和重新开始。"
+              ></textarea>
+            </label>
+            <button class="generate-button" id="publishCustomButton" type="submit">生成并发布到我的页面</button>
+          </form>
+
+          <a class="zip-download disabled" id="zipDownload" href="#" aria-disabled="true">Download generated zip</a>
+
+          <a class="published-link disabled" id="publishedLink" href="#" target="_blank" rel="noreferrer" aria-disabled="true">
+            Open published game page
+          </a>
+
+          <output class="agent-log" id="agentLog" aria-live="polite">
+            Ready. 点击一个类别，后端会生成 zip 并解压到左侧预览区。
+          </output>
         </aside>
       </section>
     </main>
 
-    <script src="./script.js"></script>
+    <script type="module" src="./script.js"></script>
   </body>
 </html>
