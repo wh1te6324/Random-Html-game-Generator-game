@@ -33,11 +33,12 @@ const semanticReasoningAxes = [
   "risk",
   "win-state",
   "feedback",
-  "asset-language",
+  "art-bible",
   "input-model",
   "progression",
   "state-loop",
-  "prompt-specific nouns"
+  "prompt-specific nouns",
+  "qa-gate"
 ];
 
 const visualSkillSets = {
@@ -237,7 +238,7 @@ function createSemanticSpec(raw) {
   const value = String(raw || "").toLowerCase();
   const mechanicLexicon = [
     { id: "reveal", label: "Reveal", words: ["reveal", "hidden", "clue", "deduce", "flag", "mine", "\u7ffb\u5f00", "\u9690\u85cf", "\u7ebf\u7d22", "\u63a8\u7406", "\u63d2\u65d7", "\u626b\u96f7", "\u5730\u96f7"] },
-    { id: "connect", label: "Connect", words: ["connect", "link", "path", "route", "pair", "match", "\u8fde\u63a5", "\u8fde\u7ebf", "\u8def\u5f84", "\u914d\u5bf9", "\u5339\u914d", "\u8fde\u8fde\u770b"] },
+    { id: "connect", label: "Connect", words: ["connect", "link", "path", "route", "pair", "match", "circuit", "\u8fde\u63a5", "\u8fde\u7ebf", "\u8def\u5f84", "\u8def\u7ebf", "\u914d\u5bf9", "\u5339\u914d", "\u8fde\u8fde\u770b"] },
     { id: "manage", label: "Manage", words: ["manage", "serve", "queue", "shop", "farm", "upgrade", "cook", "\u7ecf\u8425", "\u4e0a\u83dc", "\u961f\u5217", "\u5546\u5e97", "\u519c\u573a", "\u5347\u7ea7", "\u505a\u83dc"] },
     { id: "rhythm", label: "Time", words: ["rhythm", "beat", "music", "song", "timing", "\u8282\u594f", "\u97f3\u4e50", "\u6253\u62cd", "\u65f6\u673a"] },
     { id: "aim", label: "Aim", words: ["aim", "shoot", "drag", "release", "throw", "kick", "hit", "\u7784\u51c6", "\u5c04\u51fb", "\u62d6\u62fd", "\u677e\u5f00", "\u6295\u63b7", "\u8e22", "\u51fb\u6253"] },
@@ -245,9 +246,9 @@ function createSemanticSpec(raw) {
     { id: "collect", label: "Collect", words: ["collect", "coin", "resource", "pickup", "gem", "\u6536\u96c6", "\u91d1\u5e01", "\u8d44\u6e90", "\u62fe\u53d6", "\u5b9d\u77f3"] },
     { id: "defend", label: "Defend", words: ["defend", "tower", "wave", "base", "protect", "enemy", "\u9632\u5b88", "\u5854", "\u6ce2\u6b21", "\u57fa\u5730", "\u4fdd\u62a4", "\u654c\u4eba"] },
     { id: "explore", label: "Explore", words: ["explore", "quest", "story", "dialog", "rpg", "map", "\u63a2\u7d22", "\u4efb\u52a1", "\u5267\u60c5", "\u5bf9\u8bdd", "\u89d2\u8272", "\u5730\u56fe"] },
-    { id: "build", label: "Build", words: ["build", "place", "craft", "construct", "sandbox", "\u5efa\u9020", "\u653e\u7f6e", "\u5408\u6210", "\u642d\u5efa", "\u6c99\u76d2"] },
+    { id: "build", label: "Build", words: ["build", "place", "craft", "construct", "sandbox", "automation", "automate", "gear", "device", "machine", "mechanism", "mirror", "greenhouse", "\u5efa\u9020", "\u653e\u7f6e", "\u5408\u6210", "\u642d\u5efa", "\u6c99\u76d2", "\u81ea\u52a8\u5316", "\u9f7f\u8f6e", "\u88c5\u7f6e", "\u673a\u5173", "\u955c\u5b50", "\u6e29\u5ba4"] },
     { id: "trade", label: "Trade", words: ["trade", "sell", "buy", "market", "price", "profit", "\u4ea4\u6613", "\u4e70\u5356", "\u5e02\u573a", "\u4ef7\u683c", "\u5229\u6da6"] },
-    { id: "care", label: "Care", words: ["care", "pet", "heal", "grow", "clean", "comfort", "\u7167\u987e", "\u5ba0\u7269", "\u6cbb\u7597", "\u6210\u957f", "\u6e05\u6d01", "\u5b89\u629a"] },
+    { id: "care", label: "Care", words: ["care", "pet", "heal", "grow", "clean", "comfort", "plant", "water", "sunlight", "\u7167\u987e", "\u5ba0\u7269", "\u6cbb\u7597", "\u6210\u957f", "\u6e05\u6d01", "\u5b89\u629a", "\u690d\u7269", "\u6d47\u6c34", "\u9633\u5149"] },
     { id: "stealth", label: "Sneak", words: ["stealth", "sneak", "hide", "patrol", "vision", "\u6f5c\u884c", "\u8eb2\u85cf", "\u5de1\u903b", "\u89c6\u91ce"] },
     { id: "memory", label: "Memory", words: ["memory", "remember", "sequence", "repeat", "\u8bb0\u5fc6", "\u8bb0\u4f4f", "\u987a\u5e8f", "\u590d\u73b0"] },
     { id: "sort", label: "Sort", words: ["sort", "organize", "stack", "arrange", "\u5206\u7c7b", "\u6574\u7406", "\u5806\u53e0", "\u6392\u5217"] },
@@ -321,7 +322,7 @@ function createSemanticSpec(raw) {
 
 function chooseSemanticLayout(value, ids) {
   if (ids.has("rhythm") || hasAny(value, ["beat", "music", "stage", "\u8282\u594f", "\u821e\u53f0"])) return "stage";
-  if (ids.has("build") || ids.has("decorate") || hasAny(value, ["sandbox", "craft", "design", "\u623f\u95f4", "\u88c5\u9970", "\u6c99\u76d2", "\u5408\u6210", "\u8bbe\u8ba1"])) return "sandbox";
+  if (ids.has("build") || ids.has("decorate") || hasAny(value, ["sandbox", "craft", "design", "automation", "gear", "device", "machine", "mechanism", "mirror", "greenhouse", "\u623f\u95f4", "\u88c5\u9970", "\u6c99\u76d2", "\u5408\u6210", "\u8bbe\u8ba1", "\u81ea\u52a8\u5316", "\u9f7f\u8f6e", "\u88c5\u7f6e", "\u673a\u5173", "\u955c\u5b50", "\u6e29\u5ba4"])) return "sandbox";
   if (ids.has("manage") || ids.has("trade") || ids.has("care") || hasAny(value, ["queue", "serve", "shop", "clinic", "\u961f\u5217", "\u4e0a\u83dc", "\u5546\u5e97", "\u533b\u9662"])) return "queue";
   if (ids.has("defend") || ids.has("aim") || ids.has("survive") || ids.has("stealth") || ids.has("balance") || hasAny(value, ["arena", "battle", "sport", "\u6218\u6597", "\u8fd0\u52a8"])) return "arena";
   if (ids.has("move") || hasAny(value, ["lane", "race", "runner", "\u8d5b\u9053", "\u8dd1\u9177"])) return "lanes";
@@ -349,7 +350,7 @@ function createStudioPlan(value, mechanics, layout, ids) {
   const risk = riskForBlueprint(blueprint.id);
 
   return {
-    source: "ccgs-inspired-studio-pipeline",
+    source: "ccgs-lightweight-studio-pipeline",
     runtimeBlueprint: blueprint,
     creativeDirector: {
       fantasy: playerFantasy(value, primary, secondary),
@@ -377,15 +378,64 @@ function createStudioPlan(value, mechanics, layout, ids) {
       inputModel: blueprint.inputModel,
       feedback: blueprint.feedback
     },
+    artDirector: {
+      paletteRole: "high-contrast prompt palette with clear danger, reward, and progress colors",
+      materialLanguage: materialLanguageForLayout(layout),
+      spriteLanguage: spriteLanguageForBlueprint(blueprint.id),
+      motionTone: motionToneForBlueprint(blueprint.id)
+    },
+    gameplayProgrammer: {
+      scaffold: blueprint.id,
+      implementationGoal: "smallest complete browser-native loop with keyboard and pointer/touch support",
+      stateContract: ["opening", "play", "feedback", "completion/failure", "restart"]
+    },
     qaLead: {
       acceptance: [
         "The first input changes state immediately.",
         "The HUD exposes the current objective pressure.",
         "The win and fail states are both reachable.",
+        "The requested game family remains recognizable through rules and visuals.",
         `The runtime blueprint is ${blueprint.id}, not the generic fallback loop.`
       ]
     }
   };
+}
+
+function materialLanguageForLayout(layout) {
+  return {
+    grid: "etched board pieces, clue chips, route lines, and readable tiles",
+    stage: "poster ink, equalizer strips, beat windows, and rhythm pulses",
+    queue: "ticket cards, service counters, patience meters, and station props",
+    arena: "broadcast graphics, impact rings, threat silhouettes, and wave marks",
+    lanes: "track lights, lane rails, speed streaks, and positional markers",
+    sandbox: "modular pieces, build slots, upgrade glow, and resource cards",
+    map: "inked map nodes, route arcs, dialogue cards, and trust markers",
+    field: "prompt tokens, tactile panels, objective markers, and feedback trails"
+  }[layout] || "prompt-specific tactile panels and feedback trails";
+}
+
+function spriteLanguageForBlueprint(id) {
+  return {
+    "grid-reveal": "tiles reveal layered clue marks and risk icons",
+    "grid-link": "paired objects use matching silhouettes and connection trails",
+    "timing-stage": "notes, timing bars, combo bursts, and tempo rings animate on beat",
+    "queue-service": "customers, tickets, stations, and patience bubbles carry the scene",
+    "arena-action": "player, threats, projectiles, and collision flashes create pressure",
+    "lane-traversal": "lane markers, vehicles/goals, hazards, and speed streaks define motion",
+    "sandbox-builder": "build pieces, slots, merge sparks, and upgrade levels show growth",
+    "quest-map": "map nodes, route arcs, choice tokens, and dialogue markers create story"
+  }[id] || "prompt nouns become layered tokens with readable state changes";
+}
+
+function motionToneForBlueprint(id) {
+  return {
+    "timing-stage": "snappy rhythmic pulses",
+    "queue-service": "busy service ticks and patience tremors",
+    "sandbox-builder": "satisfying placement pops and upgrade blooms",
+    "quest-map": "calm route reveals and choice glows",
+    "lane-traversal": "fast lateral sweeps",
+    "arena-action": "impact flashes and pressure waves"
+  }[id] || "clear prompt-specific micro-feedback";
 }
 
 function chooseRuntimeBlueprint(value, layout, ids) {
@@ -664,7 +714,7 @@ function buildAgentTrace(prompt, game, promptProfile) {
   const semanticSpec = game.semanticSpec || promptProfile.semanticSpec || createSemanticSpec(prompt || "");
   const route = promptProfile.raw
     ? `accepted as a prompt-native concept (${game.genreLabel}); no fixed game-category router was used`
-    : `open-mix request; semantic runtime sampled mechanics without a preset category list`;
+    : `open-mix request; semantic studio pipeline inferred mechanics without a fixed game-category router`;
 
   return [
     {
@@ -696,16 +746,16 @@ function buildAgentTrace(prompt, game, promptProfile) {
       text: semanticSpec.reasoningPasses.join(" | ")
     },
     {
-      speaker: "Visual Director",
-      text: `Loaded ${game.visualSkillSet.name}: backdrop=${game.visualSkillSet.backdrop}, material=${game.visualSkillSet.material}, task-frame=${game.visualSkillSet.taskFrame}.`
+      speaker: "Art Director",
+      text: `Mini art bible: palette=${game.theme.name}; material=${semanticSpec.studioPlan.artDirector.materialLanguage}; sprite language=${semanticSpec.studioPlan.artDirector.spriteLanguage}; motion=${semanticSpec.studioPlan.artDirector.motionTone}.`
     },
     {
-      speaker: "Sprite Painter",
-      text: `Theme=${game.theme.name}; sprite kit=${game.spriteKit}; player=${game.playerShape}; hazard=${game.enemyShape}; pickup=${game.collectibleShape}; props=${game.visualSkillSet.props.slice(0, 4).map((prop) => prop.kind).join("/")}.`
+      speaker: "Asset Painter",
+      text: `Loaded ${game.visualSkillSet.name}: backdrop=${game.visualSkillSet.backdrop}, task-frame=${game.visualSkillSet.taskFrame}, props=${game.visualSkillSet.props.slice(0, 4).map((prop) => prop.kind).join("/")}.`
     },
     {
-      speaker: "Runtime Builder",
-      text: `Generated ${semanticSpec.runtimeBlueprint.label} runtime with screen pattern=${semanticSpec.studioPlan.levelDesigner.screenPattern}, spawn pattern=${semanticSpec.studioPlan.levelDesigner.spawnPattern}, HUD=${semanticSpec.studioPlan.uxDesigner.hud}.`
+      speaker: "Gameplay Programmer",
+      text: `Implemented ${semanticSpec.runtimeBlueprint.label} scaffold=${semanticSpec.studioPlan.gameplayProgrammer.scaffold}; screen=${semanticSpec.studioPlan.levelDesigner.screenPattern}; spawn=${semanticSpec.studioPlan.levelDesigner.spawnPattern}; HUD=${semanticSpec.studioPlan.uxDesigner.hud}.`
     },
     {
       speaker: "QA Lead",

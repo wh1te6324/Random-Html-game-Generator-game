@@ -1,13 +1,29 @@
-# Random HTML Game Generator Game
+# AI Mini Game Lab
 
-Button-driven preview site for generating small 2D HTML mini games.
+Prompt-driven preview site for generating polished HTML mini games.
 
-The app follows the repaired HTML Game Maker agent contract:
+The app follows the HTML Game Maker studio contract:
 
+- Interpret the prompt through a compact studio pipeline inspired by Claude Code Game Studios.
 - Generate a complete game environment as a zip.
 - The zip contains exactly `index.html`, `styles.css`, and `script.js`.
 - The backend extracts those three files into a preview folder.
 - The website loads the extracted `index.html` inside the large left preview frame.
+- Published games are copied into the StoryClaw static hub.
+
+## Generation Architecture
+
+The preview agent lives at `src/preview-agent.js`. It no longer routes prompts through a fixed list of game categories. Instead, it performs a semantic studio pass:
+
+1. **Creative Director**: player fantasy, design pillars, anti-pillars, and prompt nouns.
+2. **Game Designer**: 10-second loop, session goal, verbs, fail pressure, progression, restart, and tuning knobs.
+3. **Systems Designer**: entities, state, resources, rules, feedback loops, and edge cases.
+4. **Level/UX Designer**: first scenario, layout, input model, HUD, onboarding, and feedback language.
+5. **Art Director**: palette, material language, sprite construction, UI surfaces, particles, motion tone, and background motif.
+6. **Gameplay Programmer**: smallest complete browser-native runtime that matches the design pass.
+7. **QA Lead**: prompt-family fit, first-input response, visible objective pressure, reachable completion/failure state, restart, and zip contract.
+
+Runtime blueprints are implementation scaffolds only. They are chosen from semantic verbs, entities, HUD, fail pressure, and progression. They must not override the prompt.
 
 ## Run
 
@@ -30,11 +46,7 @@ This app has two runtime surfaces:
 - The Node backend serves the generator UI and handles `POST /api/publish-custom-game`.
 - The StoryClaw static hub serves finished published games from `~/.claw/hub/public` at `/static/...`.
 
-The easiest path is to run the StoryClaw setup helper. It follows the
-same domain registration rule used by the stock dashboard agents:
-generate/read a stable 12-character device id, call
-`https://api.clawln.app/devices/register` with `{ serial, port }`, then
-start `cloudflared` with the returned tunnel token.
+The easiest path is to run the StoryClaw setup helper. It follows the same domain registration rule used by the stock dashboard agents: generate/read a stable 12-character device id, call `https://api.clawln.app/devices/register` with `{ serial, port }`, then start `cloudflared` with the returned tunnel token.
 
 On the StoryClaw machine:
 
@@ -67,16 +79,13 @@ export CLAW_HUB_PUBLIC_ORIGIN="https://device-<serial>.clawln.app"
 npm start
 ```
 
-Because this app needs `POST /api/publish-custom-game`, the tunnel must
-point at this Node backend, not at a pure static-only hub. The Node
-backend still serves `~/.claw/hub/public` at `/static/`, so dashboard
-pages written by other agents remain readable as static paths.
+Because this app needs `POST /api/publish-custom-game`, the tunnel must point at this Node backend, not at a pure static-only hub. The Node backend still serves `~/.claw/hub/public` at `/static/`, so dashboard pages written by other agents remain readable as static paths.
 
 Useful overrides:
 
 ```bash
-export CLAW_DEVICE_SERIAL="ABC123XYZ789"  # force the device domain id
-export CLAW_GAME_PORT=7330               # force the tunnel ingress port
+export CLAW_DEVICE_SERIAL="ABC123XYZ789"
+export CLAW_GAME_PORT=7330
 export CLAW_HUB_PUBLIC="$HOME/.claw/hub/public"
 ```
 
@@ -98,8 +107,8 @@ https://device-<id>.clawln.app/static/games/<generated-id>/index.html
 
 ## Preview Flow
 
-1. Click the random generation button.
-2. `POST /api/generate-preview` creates a simple playable game from a broad 2D arcade pool.
+1. Submit a game prompt.
+2. `POST /api/generate-preview` or `POST /api/publish-custom-game` performs the semantic studio pass.
 3. The backend writes `index.html`, `styles.css`, and `script.js`.
 4. The backend packages those files into `generated-games/<id>/<id>.zip`.
 5. The backend extracts the zip into `public/previews/<id>/`.
@@ -113,25 +122,21 @@ Generate a preview:
 POST /api/generate-preview
 Content-Type: application/json
 
-{ "category": "tower-defense" }
+{ "prompt": "做一个月光茶馆经营装饰游戏，客人有不同茶味心情，玩家调配茶、布置桌子、管理耐心值。" }
 ```
-
-The public UI intentionally keeps only one random button. Internally, the preview pool includes dodge, collector, target clicker, snake/trail, lane runner, orbit defense, Pong-style rallies, billiards/pool collision games, paddle breaker, platform jumper, and light tower defense patterns.
 
 Response:
 
 ```json
 {
-  "id": "tower-defense-example",
-  "title": "Pulse Tower",
-  "category": "tower-defense",
-  "zipUrl": "/generated-games/tower-defense-example/tower-defense-example.zip",
-  "previewUrl": "/previews/tower-defense-example/index.html",
+  "id": "custom-example",
+  "title": "AI 月光茶馆经营装饰游戏",
+  "modeLabel": "Management Loop / Manage + Decorate + Care",
+  "genreLabel": "Management Loop / Manage + Decorate + Care",
+  "zipUrl": "/generated-games/custom-example/custom-example.zip",
+  "previewUrl": "/previews/custom-example/index.html",
   "files": ["index.html", "styles.css", "script.js"],
-  "controls": "Click empty grid cells to place towers."
+  "controls": "Click/tap requests to serve them; use pointer or WASD to move between stations.",
+  "agentTrace": []
 }
 ```
-
-## Where The AI Agent Fits Next
-
-`src/preview-agent.js` is the preview agent boundary. Today it uses randomized templates for fast local previews, including randomized palettes, sprite-like canvas shapes, background patterns, and decorative assets. Later, replace or extend `buildGame()` with an AI API call that returns the same three-file contract before packaging and extraction.

@@ -309,10 +309,10 @@ function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory,
                 <span class="console-state">published trace</span>
               </div>
               <div class="console-metrics">
-                <span>router: prompt-first</span>
-                <span>runtime: canvas-2d</span>
+                <span>pipeline: studio semantic</span>
+                <span>runtime: prompt-native</span>
+                <span>art: mini bible</span>
                 <span>artifact: 3-file zip</span>
-                <span>publish: StoryClaw static</span>
               </div>
               <div class="trace-list">${safeTraceHtml}</div>
             </div>

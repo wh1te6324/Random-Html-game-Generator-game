@@ -77,8 +77,8 @@ const cleanTraceText = (value) => String(value || "").replace(/\s+/g, " ").trim(
 const traceLine = (speaker, text, stateName = "") => ({ speaker, text, stateName });
 
 const idleTrace = () => [
-  traceLine("Runtime", "idle -> route=semantic-prompt -> contract=index.html + styles.css + script.js -> preview iframe armed.", "active"),
-  traceLine("Studio", "Creative, design, systems, level, UX, and QA passes will convert the prompt into a runtime blueprint before code generation."),
+  traceLine("Studio Runtime", "idle -> semantic studio pass -> contract=index.html + styles.css + script.js -> preview iframe armed.", "active"),
+  traceLine("Studio Leads", "Creative, game design, systems, UX, art direction, programming, and QA gates convert the prompt into a runtime blueprint."),
   traceLine("Packager", "After synthesis, the agent writes the three-file HTML package, extracts the preview iframe, and publishes the generated page.")
 ];
 
@@ -141,14 +141,13 @@ const normalizeTrace = (preview, fallbackPrompt = "") => {
 
 const buildPendingTrace = (prompt, mode) => [
   traceLine("User", prompt ? cleanTraceText(prompt) : "Random preview request"),
-  traceLine("Creative Director", "Extracting player fantasy, design pillars, anti-pillars, and the emotional target from the prompt."),
-  traceLine("Game Designer", "Mapping micro-loop, meso-loop, macro-loop, primary action, secondary action, and tuning knobs."),
-  traceLine("Systems Designer", "Defining entities, resources, failure pressure, edge cases, and how systems interact."),
-  traceLine("Runtime Planner", "Selecting a concrete runtime blueprint: board, timing stage, service queue, action arena, lane traversal, builder, map, or open field."),
-  traceLine("Mechanic Compiler", "Binding the selected blueprint to keyboard/touch input, task state, hazards, resources, restart flow, and persistence."),
-  traceLine("Visual Director", "Selecting an image-generation-style visual skill set: stage backdrop, material language, sprite props, task-card frame, and particle vocabulary."),
-  traceLine("Sprite Painter", "Procedurally drawing layered canvas sprites, prompt-specific props, progress rings, icon cards, HUD panels, and hit feedback particles."),
-  traceLine("QA Lead", "Checking first-input response, visible goal pressure, readable feedback, reachable win/fail states, and prompt fit."),
+  traceLine("Creative Director", "Extracting player fantasy, target feeling, prompt-specific nouns, design pillars, and anti-pillars."),
+  traceLine("Game Designer", "Mapping the 10-second loop, player verbs, session goal, progression, failure pressure, restart rule, and tuning knobs."),
+  traceLine("Systems Designer", "Defining entities, state variables, resources, interaction rules, feedback loops, and edge cases."),
+  traceLine("Level/UX Designer", "Choosing first scenario, screen layout, input model, HUD hierarchy, onboarding beat, and feedback language."),
+  traceLine("Art Director", "Building a mini art bible: palette, material language, sprite construction, UI surface style, particles, motion tone, and background motif."),
+  traceLine("Gameplay Programmer", "Implementing a prompt-native browser runtime from semantic verbs and state, not from a genre label."),
+  traceLine("QA Lead", "Checking first-input response, visible objective pressure, prompt-family fit, reachable win/fail or completion state, restart, and zip contract."),
   traceLine("File Writer", "Rendering index.html, styles.css, and script.js as separate files for the preview contract."),
   traceLine("Packager", mode === "publish" ? "Creating zip, extracting preview, and publishing to StoryClaw /static/games/." : "Creating zip and extracting preview iframe source.")
 ];
@@ -500,11 +499,11 @@ window.addEventListener("keydown", (event) => {
 resetPreviewButton.addEventListener("click", showDemo);
 customPromptPanel.addEventListener("submit", publishCustomGame);
 setAgentTrace([
-  traceLine("Input", "Prompt composer mounted · waiting for mechanic/theme/control details."),
-  traceLine("Intent Router", "Prompt-only route active: unsupported ideas now use the open runtime instead of falling into a preset category."),
-  traceLine("Agent", "会把 prompt 转成玩法、标题、素材、三文件 zip、preview iframe 和发布页面。", "active")
-], 1);
-setLog("输入你的游戏想法，会按 prompt 生成一个独立 HTML 游戏并发布。");
+  traceLine("Input", "Prompt composer mounted - waiting for mechanic, theme, and control details."),
+  traceLine("Studio Pipeline", "Prompt-only route active: creative/design/systems/UX/art/programming/QA gates run before runtime selection."),
+  traceLine("Agent", "会把 prompt 转成玩法、系统、视觉语言、三文件 zip、preview iframe 和发布页面。", "active")
+], 2);
+setLog("输入你的游戏想法，会按 studio pipeline 生成一个独立 HTML 游戏并发布。");
 
 resetGame();
 requestAnimationFrame(loop);
