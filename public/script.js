@@ -13,6 +13,7 @@ const categoryValue = document.querySelector("#categoryValue");
 const controlsValue = document.querySelector("#controlsValue");
 const zipDownload = document.querySelector("#zipDownload");
 const previewButtons = document.querySelectorAll("[data-category]");
+const customGameButton = document.querySelector("#customGameButton");
 const customPromptPanel = document.querySelector("#customPromptPanel");
 const customGamePrompt = document.querySelector("#customGamePrompt");
 const publishCustomButton = document.querySelector("#publishCustomButton");
@@ -348,7 +349,8 @@ const setButtonsDisabled = (disabled) => {
   previewButtons.forEach((button) => {
     button.disabled = disabled;
   });
-  publishCustomButton.disabled = disabled;
+  if (customGameButton) customGameButton.disabled = disabled;
+  if (publishCustomButton) publishCustomButton.disabled = disabled;
 };
 
 const showDemo = () => {
@@ -356,10 +358,10 @@ const showDemo = () => {
   gamePreview.hidden = true;
   gamePreview.removeAttribute("src");
   canvas.hidden = false;
-  stageLabel.textContent = "Agent preview";
-  stageTitle.textContent = "Neon Dash";
+  stageLabel.textContent = "Studio preview";
+  stageTitle.textContent = "Studio Ready";
   categoryValue.textContent = "Open";
-  controlsValue.textContent = "Space / tap to double jump.";
+  controlsValue.textContent = "输入 prompt 后会生成专属控制方式。";
   zipDownload.href = "#";
   zipDownload.classList.add("disabled");
   zipDownload.setAttribute("aria-disabled", "true");
@@ -368,7 +370,7 @@ const showDemo = () => {
   publishedLink.setAttribute("aria-disabled", "true");
   setStatus("Agent ready");
   setAgentTrace(idleTrace(), 0);
-  setLog("Demo reset. 输入 prompt 后，生成过程会显示在左侧标题区域。");
+  setLog("Demo reset. 输入 prompt 后，生成过程会显示在上方控制台。");
   resetGame();
 };
 
@@ -402,7 +404,7 @@ const generatePreview = async (category) => {
   const startedAt = performance.now();
   setButtonsDisabled(true);
   setStatus("Generating", true);
-  setPreviewLoading(true, "Compiling open game preview", "Sampling mechanics · writing 3 files · iframe warmup");
+  setPreviewLoading(true, "Compiling open game preview", "semantic design pass -> writing 3 files -> iframe warmup");
   animateAgentTrace(buildPendingTrace("", "preview"));
   setLog("后端正在生成三文件 zip，并解压到预览目录...");
 
@@ -456,7 +458,7 @@ const publishCustomGame = async (event) => {
   publishCustomButton.disabled = true;
   const startedAt = performance.now();
   setStatus("Publishing", true);
-  setPreviewLoading(true, "Building and publishing game", "Prompt routing · static package · Cloudflare preview iframe");
+  setPreviewLoading(true, "Building and publishing game", "prompt routing -> static package -> Cloudflare preview iframe");
   animateAgentTrace(buildPendingTrace(prompt, "publish"));
   setLog("正在根据 prompt 生成游戏，并写入 StoryClaw hub public 目录...");
 
@@ -497,6 +499,18 @@ window.addEventListener("keydown", (event) => {
   }
 });
 resetPreviewButton.addEventListener("click", showDemo);
+previewButtons.forEach((button) => {
+  button.addEventListener("click", () => generatePreview(button.dataset.category || "random"));
+});
+customGameButton?.addEventListener("click", () => {
+  customPromptPanel.hidden = false;
+  customGamePrompt.focus();
+  setAgentTrace([
+    traceLine("Input", "Prompt composer focused. Add mechanics, fantasy, world details, pacing, controls, and visual mood."),
+    traceLine("Studio Pipeline", "Custom prompt route is ready. The agent will derive a bespoke game blueprint instead of choosing a fixed genre.", "active")
+  ], 1);
+  setLog("写下你想要的游戏。越具体，生成的玩法和美术语言越贴近你的设想。");
+});
 customPromptPanel.addEventListener("submit", publishCustomGame);
 setAgentTrace([
   traceLine("Input", "Prompt composer mounted - waiting for mechanic, theme, and control details."),
