@@ -2,23 +2,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createZipFile, readZipFile } from "./zip.js";
 
-const categories = [
-  "asteroid-dodge",
-  "orb-collector",
-  "target-clicker",
-  "snake-trail",
-  "lane-runner",
-  "orbit-guard",
-  "paddle-breaker",
-  "pong-duel",
-  "billiards-break",
-  "sky-jumper",
-  "pulse-defense"
-];
+const OPEN_RUNTIME_ID = "semantic-canvas";
+const categories = [OPEN_RUNTIME_ID];
 const requiredFiles = ["index.html", "styles.css", "script.js"];
 
 const themes = [
-  { name: "Acid Arcade", accent: "#c9ff2f", secondary: "#5dff8a", danger: "#ff4f7b", bg: "#020302", pattern: "circuit" },
+  { name: "Acid Signal", accent: "#c9ff2f", secondary: "#5dff8a", danger: "#ff4f7b", bg: "#020302", pattern: "circuit" },
   { name: "Violet Byte", accent: "#b77cff", secondary: "#75f4ff", danger: "#ffdd55", bg: "#05030a", pattern: "stars" },
   { name: "Solar Pop", accent: "#ffdd55", secondary: "#ff7a59", danger: "#75f4ff", bg: "#080502", pattern: "rings" },
   { name: "Aqua Signal", accent: "#75f4ff", secondary: "#5dff8a", danger: "#ff5df7", bg: "#02070a", pattern: "bubbles" },
@@ -29,16 +18,106 @@ const spriteKits = [
   { name: "Space Junk", player: "rocket", enemy: "asteroid", collectible: "star-core", decor: ["tiny-star", "satellite", "spark"] },
   { name: "Bubble Reef", player: "submarine", enemy: "jelly", collectible: "pearl", decor: ["bubble", "coral", "wave"] },
   { name: "Bug Circuit", player: "hover-bug", enemy: "virus-eye", collectible: "data-chip", decor: ["circuit-node", "spark", "scanline"] },
+  { name: "Repair Bay", player: "repair-bot", enemy: "short-spark", collectible: "battery-cell", decor: ["wire-node", "moon-crater", "bolt"] },
+  { name: "Kitchen Rush", player: "chef-token", enemy: "hungry-customer", collectible: "meal-tray", decor: ["steam", "service-bell", "dish-plate"] },
+  { name: "Stadium Motion", player: "athlete-token", enemy: "goalie-block", collectible: "trophy-star", decor: ["score-flag", "speed-ring", "spotlight"] },
   { name: "Pocket Table", player: "cue-ball", enemy: "stripe-ball", collectible: "eight-ball", decor: ["pocket", "chalk", "rail-light"] },
   { name: "Sky Carnival", player: "kite", enemy: "storm-cloud", collectible: "ticket-star", decor: ["flag", "pinwheel", "spark"] },
   { name: "Dungeon Neon", player: "tiny-knight", enemy: "slime-eye", collectible: "gem-cluster", decor: ["rune", "torch", "crack"] }
 ];
 
+const semanticReasoningAxes = [
+  "objective",
+  "interaction",
+  "layout",
+  "risk",
+  "win-state",
+  "feedback",
+  "asset-language",
+  "input-model",
+  "progression",
+  "state-loop",
+  "prompt-specific nouns"
+];
+
+const visualSkillSets = {
+  grid: {
+    name: "Logic Surface Painter",
+    backdrop: "logic-board",
+    surface: "etched-grid",
+    taskFrame: "glyph-tile",
+    props: ["switch-node", "route-line", "lock-glyph", "clue-chip"],
+    particles: ["glyph", "spark"],
+    material: "glass puzzle pieces"
+  },
+  stage: {
+    name: "Timing Stage Painter",
+    backdrop: "stage-equalizer",
+    surface: "vinyl-grid",
+    taskFrame: "record-pad",
+    props: ["speaker-stack", "beat-lane", "note-burst", "equalizer"],
+    particles: ["note", "spark"],
+    material: "glossy poster ink"
+  },
+  queue: {
+    name: "Service Loop Diorama",
+    backdrop: "shop-counter",
+    surface: "tile-counter",
+    taskFrame: "order-ticket",
+    props: ["service-bell", "dish-plate", "customer-bubble", "steam"],
+    particles: ["steam", "spark"],
+    material: "soft enamel panels"
+  },
+  arena: {
+    name: "Action Space Painter",
+    backdrop: "stadium-lights",
+    surface: "track-lines",
+    taskFrame: "target-badge",
+    props: ["score-flag", "speed-ring", "finish-line", "spotlight"],
+    particles: ["confetti", "spark"],
+    material: "sports broadcast graphics"
+  },
+  lanes: {
+    name: "Motion Track Painter",
+    backdrop: "neon-runway",
+    surface: "lane-markers",
+    taskFrame: "motion-token",
+    props: ["speed-ring", "finish-line", "scanline", "side-light"],
+    particles: ["pixel", "spark"],
+    material: "lit acrylic sprites"
+  },
+  sandbox: {
+    name: "Build Space Painter",
+    backdrop: "workbench-map",
+    surface: "construction-grid",
+    taskFrame: "craft-card",
+    props: ["wire-node", "map-pin", "power-core", "relic"],
+    particles: ["glyph", "spark"],
+    material: "modular toy pieces"
+  },
+  map: {
+    name: "Quest Map Painter",
+    backdrop: "map-room",
+    surface: "parchment-grid",
+    taskFrame: "quest-card",
+    props: ["portal", "map-pin", "dialogue-glyph", "relic"],
+    particles: ["rune", "spark"],
+    material: "inked fantasy tokens"
+  },
+  field: {
+    name: "Open Concept Painter",
+    backdrop: "semantic-field",
+    surface: "circuit-floor",
+    taskFrame: "prompt-token",
+    props: ["score-chip", "power-core", "scanline", "side-light"],
+    particles: ["pixel", "spark"],
+    material: "lit acrylic sprites"
+  }
+};
+
 export async function createPreviewGameZip({ category, id, outputDir, prompt = "" }) {
   const promptProfile = analyzePrompt(prompt);
-  const pickedCategory = categories.includes(category)
-    ? category
-    : promptProfile.category || randomItem(categories);
+  const pickedCategory = chooseCategory(category, promptProfile);
   const seed = Math.floor(Math.random() * 900000) + 100000;
   const game = buildGame(pickedCategory, seed, promptProfile);
   const agentTrace = buildAgentTrace(prompt, game, promptProfile);
@@ -67,6 +146,8 @@ export async function createPreviewGameZip({ category, id, outputDir, prompt = "
     id,
     title: game.title,
     category: pickedCategory,
+    modeLabel: game.modeLabel,
+    genreLabel: game.genreLabel,
     controls: game.controls,
     promptSummary: game.promptSummary,
     agentTrace,
@@ -118,46 +199,402 @@ export function slugify(value) {
 function analyzePrompt(prompt) {
   const raw = String(prompt || "").trim();
   const value = raw.toLowerCase();
-  if (!raw) return {};
-
-  const categoryRules = [
-    ["pong-duel", ["pong", "\u4e52\u4e53", "\u5bf9\u6253", "\u53cc\u4eba\u5f39\u7403"]],
-    ["billiards-break", ["billiard", "pool", "\u53f0\u7403", "\u684c\u7403", "\u649e\u7403", "\u7403\u888b", "\u6bcd\u7403", "8 ball", "eight ball"]],
-    ["snake-trail", ["snake", "\u8d2a\u5403\u86c7", "trail", "\u8f68\u8ff9"]],
-    ["pulse-defense", ["tower", "defense", "\u5854\u9632", "\u9632\u5b88", "\u70ae\u5854"]],
-    ["sky-jumper", ["jump", "platform", "\u8df3\u8dc3", "\u5e73\u53f0", "\u8dd1\u9177"]],
-    ["target-clicker", ["click", "tap", "\u70b9\u51fb", "\u53cd\u5e94", "\u5c04\u51fb", "\u6253\u9776"]],
-    ["orb-collector", ["collect", "coin", "orb", "\u6536\u96c6", "\u91d1\u5e01", "\u5b9d\u77f3"]],
-    ["lane-runner", ["lane", "runner", "\u8d5b\u9053", "\u6362\u9053", "\u8eb2\u907f"]],
-    ["orbit-guard", ["orbit", "shield", "\u8f68\u9053", "\u62a4\u76fe", "\u73af\u7ed5"]]
-  ];
-  const category = categoryRules.find(([, keywords]) => hasAny(value, keywords))?.[0];
+  const semanticSpec = createSemanticSpec(raw);
+  if (!raw) {
+    return {
+      category: OPEN_RUNTIME_ID,
+      promptMode: semanticSpec.mode,
+      semanticSpec
+    };
+  }
 
   const themeName = pickPromptTheme(value);
-  const spriteKitName = pickPromptSpriteKit(value, category);
+  const spriteKitName = pickPromptSpriteKit(value, semanticSpec);
 
   return {
     raw,
-    category,
+    category: OPEN_RUNTIME_ID,
     themeName,
     spriteKitName,
-    title: promptTitle(category, value),
-    subtitle: `Prompt-led: ${raw}`,
-    summary: raw
+    promptMode: semanticSpec.mode,
+    title: promptTitle(semanticSpec, raw),
+    subtitle: promptSubtitle(raw, semanticSpec),
+    controls: semanticSpec.controls,
+    summary: shortenPrompt(raw, 180),
+    semanticSpec
   };
 }
 
+function chooseCategory() {
+  return OPEN_RUNTIME_ID;
+}
+
+function inferPromptCategory() {
+  return OPEN_RUNTIME_ID;
+}
+
+function createSemanticSpec(raw) {
+  const value = String(raw || "").toLowerCase();
+  const mechanicLexicon = [
+    { id: "reveal", label: "Reveal", words: ["reveal", "hidden", "clue", "deduce", "flag", "mine", "\u7ffb\u5f00", "\u9690\u85cf", "\u7ebf\u7d22", "\u63a8\u7406", "\u63d2\u65d7", "\u626b\u96f7", "\u5730\u96f7"] },
+    { id: "connect", label: "Connect", words: ["connect", "link", "path", "route", "pair", "match", "\u8fde\u63a5", "\u8fde\u7ebf", "\u8def\u5f84", "\u914d\u5bf9", "\u5339\u914d", "\u8fde\u8fde\u770b"] },
+    { id: "manage", label: "Manage", words: ["manage", "serve", "queue", "shop", "farm", "upgrade", "cook", "\u7ecf\u8425", "\u4e0a\u83dc", "\u961f\u5217", "\u5546\u5e97", "\u519c\u573a", "\u5347\u7ea7", "\u505a\u83dc"] },
+    { id: "rhythm", label: "Time", words: ["rhythm", "beat", "music", "song", "timing", "\u8282\u594f", "\u97f3\u4e50", "\u6253\u62cd", "\u65f6\u673a"] },
+    { id: "aim", label: "Aim", words: ["aim", "shoot", "drag", "release", "throw", "kick", "hit", "\u7784\u51c6", "\u5c04\u51fb", "\u62d6\u62fd", "\u677e\u5f00", "\u6295\u63b7", "\u8e22", "\u51fb\u6253"] },
+    { id: "move", label: "Move", words: ["move", "dodge", "run", "race", "jump", "platform", "lane", "\u79fb\u52a8", "\u8eb2\u907f", "\u8dd1", "\u8d5b\u8f66", "\u8df3", "\u5e73\u53f0", "\u8d5b\u9053"] },
+    { id: "collect", label: "Collect", words: ["collect", "coin", "resource", "pickup", "gem", "\u6536\u96c6", "\u91d1\u5e01", "\u8d44\u6e90", "\u62fe\u53d6", "\u5b9d\u77f3"] },
+    { id: "defend", label: "Defend", words: ["defend", "tower", "wave", "base", "protect", "enemy", "\u9632\u5b88", "\u5854", "\u6ce2\u6b21", "\u57fa\u5730", "\u4fdd\u62a4", "\u654c\u4eba"] },
+    { id: "explore", label: "Explore", words: ["explore", "quest", "story", "dialog", "rpg", "map", "\u63a2\u7d22", "\u4efb\u52a1", "\u5267\u60c5", "\u5bf9\u8bdd", "\u89d2\u8272", "\u5730\u56fe"] },
+    { id: "build", label: "Build", words: ["build", "place", "craft", "construct", "sandbox", "\u5efa\u9020", "\u653e\u7f6e", "\u5408\u6210", "\u642d\u5efa", "\u6c99\u76d2"] },
+    { id: "trade", label: "Trade", words: ["trade", "sell", "buy", "market", "price", "profit", "\u4ea4\u6613", "\u4e70\u5356", "\u5e02\u573a", "\u4ef7\u683c", "\u5229\u6da6"] },
+    { id: "care", label: "Care", words: ["care", "pet", "heal", "grow", "clean", "comfort", "\u7167\u987e", "\u5ba0\u7269", "\u6cbb\u7597", "\u6210\u957f", "\u6e05\u6d01", "\u5b89\u629a"] },
+    { id: "stealth", label: "Sneak", words: ["stealth", "sneak", "hide", "patrol", "vision", "\u6f5c\u884c", "\u8eb2\u85cf", "\u5de1\u903b", "\u89c6\u91ce"] },
+    { id: "memory", label: "Memory", words: ["memory", "remember", "sequence", "repeat", "\u8bb0\u5fc6", "\u8bb0\u4f4f", "\u987a\u5e8f", "\u590d\u73b0"] },
+    { id: "sort", label: "Sort", words: ["sort", "organize", "stack", "arrange", "\u5206\u7c7b", "\u6574\u7406", "\u5806\u53e0", "\u6392\u5217"] },
+    { id: "merge", label: "Merge", words: ["merge", "combine", "evolve", "alchemy", "\u5408\u5e76", "\u7ec4\u5408", "\u8fdb\u5316", "\u70bc\u91d1"] },
+    { id: "survive", label: "Survive", words: ["survive", "survival", "hunger", "temperature", "night", "\u751f\u5b58", "\u9965\u997f", "\u6e29\u5ea6", "\u591c\u665a"] },
+    { id: "talk", label: "Talk", words: ["talk", "dialogue", "choice", "npc", "relationship", "\u804a\u5929", "\u5bf9\u8bdd", "\u9009\u62e9", "\u5173\u7cfb"] },
+    { id: "decorate", label: "Decorate", words: ["decorate", "design", "room", "garden", "style", "\u88c5\u9970", "\u8bbe\u8ba1", "\u623f\u95f4", "\u82b1\u56ed", "\u98ce\u683c"] },
+    { id: "balance", label: "Balance", words: ["balance", "tilt", "weight", "physics", "\u5e73\u8861", "\u503e\u659c", "\u91cd\u91cf", "\u7269\u7406"] }
+  ];
+  const promptTerms = extractPromptTerms(value);
+  const scoredMechanics = mechanicLexicon
+    .map((axis) => ({
+      ...axis,
+      score: axis.words.reduce((total, word) => total + (value.includes(word) ? 1 : 0), 0)
+    }))
+    .filter((axis) => axis.score > 0)
+    .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+  const fallback = promptTerms.length
+    ? promptTerms.slice(0, 4).map((term, index) => ({ id: `prompt-${index}`, label: term, score: 0.5 }))
+    : [
+        { id: "interact", label: "Interact", score: 1 },
+        { id: "progress", label: "Progress", score: 1 },
+        { id: "react", label: "React", score: 1 }
+      ];
+  const mechanics = (scoredMechanics.length ? scoredMechanics : fallback).slice(0, 4);
+  const ids = new Set(mechanics.map((item) => item.id));
+  const layout = chooseSemanticLayout(value, ids);
+  const mode = chooseSemanticMode(mechanics, layout);
+  const studioPlan = createStudioPlan(value, mechanics, layout, ids);
+  const labels = buildSemanticLabels(mechanics, value);
+  const flags = {
+    hiddenInfo: ids.has("reveal") || ids.has("stealth") || ids.has("memory") || hasAny(value, ["hidden", "\u9690\u85cf", "\u626b\u96f7", "\u63a8\u7406"]),
+    pairLogic: ids.has("connect") || ids.has("memory") || ids.has("sort") || ids.has("merge") || hasAny(value, ["pair", "match", "\u914d\u5bf9", "\u8fde\u8fde\u770b"]),
+    timedBeat: ids.has("rhythm") || hasAny(value, ["timed", "countdown", "\u9650\u65f6", "\u5012\u8ba1\u65f6"]),
+    wavePressure: ids.has("defend") || ids.has("survive") || ids.has("stealth"),
+    economy: ids.has("manage") || ids.has("build") || ids.has("trade") || ids.has("care") || ids.has("decorate"),
+    physicsAim: ids.has("aim") || ids.has("balance"),
+    traversal: ids.has("move") || ids.has("explore") || ids.has("stealth") || ids.has("talk")
+  };
+  const rules = [
+    `layout=${layout}`,
+    `primary=${mechanics[0].label.toLowerCase()}`,
+    flags.hiddenInfo ? "hidden-information is represented as clue cells" : "",
+    flags.pairLogic ? "matching/linking logic creates paired objectives" : "",
+    flags.wavePressure ? "pressure escalates through moving threats" : "",
+    flags.economy ? "resources convert into upgrades or placements" : "",
+    flags.timedBeat ? "timing windows change scoring and task motion" : "",
+    flags.physicsAim ? "drag vectors influence action strength" : ""
+  ].filter(Boolean);
+
+  return {
+    runtime: OPEN_RUNTIME_ID,
+    mode,
+    layout,
+    mechanics: mechanics.map(({ id, label, score }) => ({ id, label, score })),
+    primaryAction: mechanics[0].label,
+    secondaryAction: mechanics[1]?.label || "React",
+    labels,
+    flags,
+    studioPlan,
+    runtimeBlueprint: studioPlan.runtimeBlueprint,
+    objective: semanticObjective(mechanics, flags),
+    winCondition: semanticWinCondition(mechanics, flags),
+    failCondition: semanticFailCondition(mechanics, flags),
+    controls: semanticControls(mechanics, flags),
+    genreLabel: `${labelForLayout(layout)} / ${mechanics.map((item) => item.label).join(" + ")}`,
+    rules,
+    reasoningPasses: semanticReasoningAxes.map((axis, index) => `${String(index + 1).padStart(2, "0")} ${axis}: ${rules[index % rules.length] || mechanics[0].label}`)
+  };
+}
+
+function chooseSemanticLayout(value, ids) {
+  if (ids.has("rhythm") || hasAny(value, ["beat", "music", "stage", "\u8282\u594f", "\u821e\u53f0"])) return "stage";
+  if (ids.has("build") || ids.has("decorate") || hasAny(value, ["sandbox", "craft", "design", "\u623f\u95f4", "\u88c5\u9970", "\u6c99\u76d2", "\u5408\u6210", "\u8bbe\u8ba1"])) return "sandbox";
+  if (ids.has("manage") || ids.has("trade") || ids.has("care") || hasAny(value, ["queue", "serve", "shop", "clinic", "\u961f\u5217", "\u4e0a\u83dc", "\u5546\u5e97", "\u533b\u9662"])) return "queue";
+  if (ids.has("defend") || ids.has("aim") || ids.has("survive") || ids.has("stealth") || ids.has("balance") || hasAny(value, ["arena", "battle", "sport", "\u6218\u6597", "\u8fd0\u52a8"])) return "arena";
+  if (ids.has("move") || hasAny(value, ["lane", "race", "runner", "\u8d5b\u9053", "\u8dd1\u9177"])) return "lanes";
+  if (ids.has("reveal") || ids.has("connect") || ids.has("memory") || ids.has("sort") || ids.has("merge") || hasAny(value, ["grid", "cell", "tile", "board", "card", "\u683c", "\u68cb\u76d8", "\u724c", "\u626b\u96f7", "\u8fde\u8fde\u770b"])) return "grid";
+  if (ids.has("explore") || ids.has("talk") || hasAny(value, ["map", "quest", "story", "\u5730\u56fe", "\u4efb\u52a1", "\u5267\u60c5"])) return "map";
+  return "field";
+}
+
+function chooseSemanticMode(mechanics, layout) {
+  const primary = mechanics[0]?.id || "open";
+  const secondary = mechanics[1]?.id || "react";
+  return `${layout}:${primary}+${secondary}`;
+}
+
+function createStudioPlan(value, mechanics, layout, ids) {
+  const primary = mechanics[0] || { id: "interact", label: "Interact" };
+  const secondary = mechanics[1] || { id: "react", label: "React" };
+  const blueprint = chooseRuntimeBlueprint(value, layout, ids);
+  const pillars = [
+    `${primary.label} must be the first visible action`,
+    `${secondary.label} creates the second decision layer`,
+    `${labelForLayout(layout)} defines the screen composition`
+  ];
+  const microLoop = loopForBlueprint(blueprint.id, primary.label, secondary.label);
+  const risk = riskForBlueprint(blueprint.id);
+
+  return {
+    source: "ccgs-inspired-studio-pipeline",
+    runtimeBlueprint: blueprint,
+    creativeDirector: {
+      fantasy: playerFantasy(value, primary, secondary),
+      pillars,
+      antiPillars: ["single-template reskin", "unreadable goals", "dead-end interaction"]
+    },
+    gameDesigner: {
+      microLoop,
+      mesoLoop: `Chain ${primary.label.toLowerCase()} outcomes into score, resources, or progress within one short session.`,
+      macroLoop: "Restart quickly with best-score persistence and clearer mastery targets.",
+      tuningKnobs: blueprint.tuningKnobs
+    },
+    systemsDesigner: {
+      entities: entityContractForBlueprint(blueprint.id),
+      resources: resourceContractForBlueprint(blueprint.id),
+      failurePressure: risk
+    },
+    levelDesigner: {
+      layout,
+      screenPattern: blueprint.screenPattern,
+      spawnPattern: blueprint.spawnPattern
+    },
+    uxDesigner: {
+      hud: blueprint.hud,
+      inputModel: blueprint.inputModel,
+      feedback: blueprint.feedback
+    },
+    qaLead: {
+      acceptance: [
+        "The first input changes state immediately.",
+        "The HUD exposes the current objective pressure.",
+        "The win and fail states are both reachable.",
+        `The runtime blueprint is ${blueprint.id}, not the generic fallback loop.`
+      ]
+    }
+  };
+}
+
+function chooseRuntimeBlueprint(value, layout, ids) {
+  if (layout === "grid" && (ids.has("reveal") || ids.has("stealth"))) {
+    return runtimeBlueprint("grid-reveal", "Deduction board", "inspect/mark cells", "safe cells vs hazards", "clue grid", "clustered hidden cells");
+  }
+  if (layout === "grid" && (ids.has("connect") || ids.has("memory") || ids.has("sort") || ids.has("merge"))) {
+    return runtimeBlueprint("grid-link", "Matching board", "select compatible tiles", "uncleared pairs", "paired tiles", "shuffled tile deck");
+  }
+  if (layout === "stage" || ids.has("rhythm")) {
+    return runtimeBlueprint("timing-stage", "Timing stage", "tap on beat windows", "missed timing", "beat lane + combo", "notes crossing timing bar");
+  }
+  if (layout === "queue") {
+    return runtimeBlueprint("queue-service", "Service queue", "serve and upgrade stations", "patience overflow", "queue pressure + resources", "station tickets and customers");
+  }
+  if (layout === "arena" && (ids.has("aim") || ids.has("defend") || ids.has("survive") || ids.has("stealth"))) {
+    return runtimeBlueprint("arena-action", "Action arena", "move, aim, and repel threats", "collisions and wave pressure", "lives + wave + score", "radial threats and projectiles");
+  }
+  if (layout === "lanes" || ids.has("move")) {
+    return runtimeBlueprint("lane-traversal", "Lane traversal", "switch lanes and intercept goals", "missed lanes and hazards", "lane + distance + lives", "horizontal lane streams");
+  }
+  if (layout === "sandbox" || ids.has("build") || ids.has("decorate")) {
+    return runtimeBlueprint("sandbox-builder", "Build sandbox", "place, merge, and upgrade objects", "resource pressure", "resources + build score", "slots and crafted pieces");
+  }
+  if (layout === "map" || ids.has("talk") || ids.has("explore")) {
+    return runtimeBlueprint("quest-map", "Quest map", "visit nodes and resolve choices", "expired quests", "quest progress + trust", "map nodes and route arcs");
+  }
+  return runtimeBlueprint("open-field", "Open field", "act on prompt-specific objectives", "expired objectives", "score + combo + lives", "freeform objective scatter");
+}
+
+function runtimeBlueprint(id, label, inputModel, risk, hud, spawnPattern) {
+  return {
+    id,
+    label,
+    inputModel,
+    risk,
+    hud,
+    spawnPattern,
+    screenPattern: label.toLowerCase(),
+    feedback: "instant hit flash, score burst, short fail/win overlay",
+    tuningKnobs: ["task count", "spawn interval", "life drain", "score target"]
+  };
+}
+
+function loopForBlueprint(id, primary, secondary) {
+  return {
+    "grid-reveal": `Inspect a cell -> interpret clues -> mark risk or reveal another cell.`,
+    "grid-link": `Select a tile -> find its compatible partner -> clear the pair without losing route memory.`,
+    "timing-stage": `Watch the timing lane -> tap the active window -> build combo before notes expire.`,
+    "queue-service": `Read a request -> serve or upgrade -> keep patience from overflowing.`,
+    "arena-action": `Move into position -> aim or intercept -> survive the next pressure wave.`,
+    "lane-traversal": `Read lane traffic -> switch lanes -> collect or avoid at speed.`,
+    "sandbox-builder": `Pick a slot -> place or merge an object -> reinvest resources into stronger pieces.`,
+    "quest-map": `Choose a node -> resolve a prompt action -> open the next route.`
+  }[id] || `${primary} -> ${secondary} -> score feedback.`;
+}
+
+function riskForBlueprint(id) {
+  return {
+    "grid-reveal": "Hidden hazards punish careless reveals.",
+    "grid-link": "Wrong matches reset combo and waste board tempo.",
+    "timing-stage": "Expired notes break combo and drain lives.",
+    "queue-service": "Unserved requests overflow patience.",
+    "arena-action": "Threats close distance and collide with the player.",
+    "lane-traversal": "Wrong-lane hazards and missed objectives cost lives.",
+    "sandbox-builder": "Resources decay when the build plan stalls.",
+    "quest-map": "Quest nodes expire if routes are ignored."
+  }[id] || "Objectives expire if the player stops reacting.";
+}
+
+function entityContractForBlueprint(id) {
+  return {
+    "grid-reveal": ["clue cells", "hazards", "marks"],
+    "grid-link": ["paired tiles", "selection cursor", "cleared slots"],
+    "timing-stage": ["notes", "timing bar", "combo pulses"],
+    "queue-service": ["customers", "tickets", "stations"],
+    "arena-action": ["player", "threats", "projectiles"],
+    "lane-traversal": ["lane marker", "streaming goals", "hazards"],
+    "sandbox-builder": ["build slots", "pieces", "upgrade sparks"],
+    "quest-map": ["quest nodes", "route arcs", "choice markers"]
+  }[id] || ["player", "objectives", "hazards"];
+}
+
+function resourceContractForBlueprint(id) {
+  return {
+    "queue-service": ["patience", "resources", "upgrades"],
+    "sandbox-builder": ["materials", "upgrade level", "build score"],
+    "quest-map": ["trust", "keys", "quest progress"],
+    "timing-stage": ["combo", "beat accuracy"],
+    "arena-action": ["lives", "wave", "charge"],
+    "lane-traversal": ["distance", "lane safety"],
+    "grid-reveal": ["safe cells", "marks"],
+    "grid-link": ["pairs", "combo"]
+  }[id] || ["score", "combo", "lives"];
+}
+
+function playerFantasy(value, primary, secondary) {
+  const promptTerms = extractPromptTerms(value).slice(0, 3).join(", ");
+  const context = promptTerms ? ` through ${promptTerms}` : "";
+  return `The player feels clever and capable while using ${primary.label.toLowerCase()} and ${secondary.label.toLowerCase()}${context}.`;
+}
+
+function labelForLayout(layout) {
+  return {
+    grid: "Logic Board",
+    stage: "Timing Stage",
+    queue: "Management Loop",
+    arena: "Action Arena",
+    lanes: "Traversal Track",
+    sandbox: "Build Sandbox",
+    map: "Adventure Map",
+    field: "Open Field"
+  }[layout] || "Open Field";
+}
+
+function buildSemanticLabels(mechanics, value) {
+  const base = mechanics.flatMap((item) => ({
+    reveal: ["Reveal", "Flag", "Clue", "Clear"],
+    connect: ["Match", "Link", "Route", "Pair"],
+    manage: ["Serve", "Queue", "Prep", "Upgrade"],
+    rhythm: ["Beat", "Sync", "Hold", "Drop"],
+    aim: ["Aim", "Charge", "Release", "Hit"],
+    move: ["Dodge", "Dash", "Jump", "Lane"],
+    collect: ["Collect", "Bank", "Combo", "Bonus"],
+    defend: ["Build", "Block", "Wave", "Core"],
+    explore: ["Quest", "Map", "Talk", "Relic"],
+    build: ["Place", "Craft", "Merge", "Power"],
+    trade: ["Buy", "Sell", "Price", "Profit"],
+    care: ["Care", "Heal", "Grow", "Clean"],
+    stealth: ["Hide", "Scout", "Patrol", "Escape"],
+    memory: ["Watch", "Recall", "Repeat", "Chain"],
+    sort: ["Sort", "Stack", "Group", "Clear"],
+    merge: ["Merge", "Evolve", "Combine", "Unlock"],
+    survive: ["Forage", "Shelter", "Endure", "Night"],
+    talk: ["Talk", "Choose", "Trust", "Story"],
+    decorate: ["Place", "Style", "Upgrade", "Show"],
+    balance: ["Tilt", "Weight", "Steady", "Drop"]
+  }[item.id] || [item.label]));
+  const promptTerms = extractPromptTerms(value);
+  return Array.from(new Set([...base, ...promptTerms])).slice(0, 8);
+}
+
+function extractPromptTerms(value) {
+  const english = value.match(/[a-z][a-z0-9-]{2,}/g) || [];
+  const cjk = value.match(/[\u4e00-\u9fa5]{2,6}/g) || [];
+  const stopWords = new Set([
+    "game", "make", "create", "with", "that", "have", "play", "player", "html", "mini", "small",
+    "\u6e38\u620f", "\u5c0f\u6e38\u620f", "\u751f\u6210", "\u5236\u4f5c", "\u73a9\u5bb6", "\u4e00\u4e2a"
+  ]);
+  const filteredEnglish = english.filter((word) => !stopWords.has(word));
+  const filteredCjk = cjk.filter((word) => !stopWords.has(word));
+  const labels = [
+    ...filteredEnglish.map((word) => word[0].toUpperCase() + word.slice(1, 12)),
+    ...filteredCjk.map((word) => word.slice(0, 6))
+  ];
+  return Array.from(new Set(labels)).slice(0, 6);
+}
+
+function semanticObjective(mechanics, flags) {
+  if (flags.hiddenInfo) return "Reveal safe information and use clues to avoid traps.";
+  if (flags.pairLogic) return "Connect compatible objectives while keeping routes open.";
+  if (flags.economy) return "Convert tasks into resources, then reinvest them before pressure rises.";
+  if (flags.wavePressure) return "Hold the core through escalating waves.";
+  return `Complete ${mechanics.map((item) => item.label.toLowerCase()).join(", ")} objectives and build a score chain.`;
+}
+
+function semanticWinCondition(mechanics, flags) {
+  if (flags.hiddenInfo) return "Reveal all safe cells or solve all clue nodes.";
+  if (flags.pairLogic) return "Clear every linked pair.";
+  if (flags.wavePressure) return "Survive the full wave budget.";
+  return `Reach the score target while preserving lives.`;
+}
+
+function semanticFailCondition(mechanics, flags) {
+  if (flags.hiddenInfo) return "Trigger too many hidden hazards.";
+  if (flags.economy) return "Let the queue or resource pressure overflow.";
+  return "Lose all lives to hazards, missed timing, or expired objectives.";
+}
+
+function semanticControls(mechanics, flags) {
+  const ids = new Set(mechanics.map((item) => item.id));
+  if (flags.hiddenInfo) return "Click/tap to inspect; right-click or long-press marks risk; WASD/Arrow keys nudge focus.";
+  if (ids.has("build") || ids.has("decorate") || (ids.has("merge") && flags.economy)) return "Click/tap build slots to place or merge pieces; resources upgrade the next placement.";
+  if (flags.pairLogic) return "Click/tap compatible nodes to connect them; drag or move to reposition focus.";
+  if (ids.has("aim")) return "Drag to aim or charge, release to act; keyboard movement remains enabled.";
+  if (ids.has("rhythm")) return "Click/tap on timing windows; Space also triggers the active beat.";
+  if (ids.has("manage") || ids.has("care") || ids.has("trade")) return "Click/tap requests to serve them; use pointer or WASD to move between stations.";
+  if (ids.has("talk") || ids.has("explore")) return "Click/tap map nodes to resolve choices; move with WASD/Arrow keys between routes.";
+  if (ids.has("move")) return "Move with WASD/Arrow keys or pointer; tap objectives to interact.";
+  return "Click/tap objectives, use WASD/Arrow keys to move, and restart to rebuild the prompt.";
+}
+
 function pickPromptTheme(value) {
-  if (hasAny(value, ["neon", "acid", "\u9713\u8679", "\u8367\u5149"])) return "Acid Arcade";
+  if (hasAny(value, ["neon", "acid", "\u9713\u8679", "\u8367\u5149"])) return "Acid Signal";
+  if (hasAny(value, ["moon", "lunar", "robot", "battery", "repair", "\u6708\u7403", "\u673a\u5668\u4eba", "\u7535\u6c60", "\u7ef4\u4fee", "\u77ed\u8def"])) return "Violet Byte";
   if (hasAny(value, ["space", "star", "meteor", "\u592a\u7a7a", "\u661f", "\u9668\u77f3"])) return "Violet Byte";
   if (hasAny(value, ["ocean", "water", "bubble", "reef", "\u6d77", "\u6c34", "\u6ce1\u6ce1"])) return "Aqua Signal";
   if (hasAny(value, ["fire", "sun", "desert", "\u706b", "\u592a\u9633", "\u6c99\u6f20"])) return "Solar Pop";
   if (hasAny(value, ["pool", "billiard", "\u53f0\u7403", "\u684c\u7403"])) return "Cherry Grid";
+  if (hasAny(value, ["连连看", "tile link", "matching", "pair", "消除配对", "配对消除"])) return "Aqua Signal";
   return "";
 }
 
-function pickPromptSpriteKit(value, category) {
-  if (category === "billiards-break" || hasAny(value, ["pool", "billiard", "\u53f0\u7403", "\u684c\u7403"])) return "Pocket Table";
+function pickPromptSpriteKit(value, semanticSpec = {}) {
+  const mechanicIds = new Set((semanticSpec.mechanics || []).map((item) => item.id));
+  if (mechanicIds.has("aim") && hasAny(value, ["pool", "billiard", "\u53f0\u7403", "\u684c\u7403"])) return "Pocket Table";
+  if (hasAny(value, ["restaurant", "chef", "cook", "kitchen", "dish", "serve", "\u9910\u5385", "\u53a8\u623f", "\u4e0a\u83dc", "\u505a\u83dc", "\u5ba2\u4eba"])) return "Kitchen Rush";
+  if (hasAny(value, ["sport", "soccer", "football", "basketball", "goalie", "penalty", "race", "golf", "\u8fd0\u52a8", "\u8db3\u7403", "\u7bee\u7403", "\u5b88\u95e8", "\u70b9\u7403", "\u8d5b\u8f66"])) return "Stadium Motion";
+  if (hasAny(value, ["robot", "battery", "wire", "repair", "short", "circuit", "\u673a\u5668\u4eba", "\u7535\u6c60", "\u63a5\u7ebf", "\u7ef4\u4fee", "\u77ed\u8def", "\u7535\u8def"])) return "Repair Bay";
   if (hasAny(value, ["space", "rocket", "meteor", "\u592a\u7a7a", "\u706b\u7bad", "\u9668\u77f3"])) return "Space Junk";
   if (hasAny(value, ["ocean", "water", "submarine", "\u6d77", "\u6c34", "\u6f5c\u8247"])) return "Bubble Reef";
   if (hasAny(value, ["bug", "virus", "cyber", "data", "\u75c5\u6bd2", "\u6570\u636e", "\u8d5b\u535a"])) return "Bug Circuit";
@@ -166,47 +603,121 @@ function pickPromptSpriteKit(value, category) {
   return "";
 }
 
-function promptTitle(category, value) {
+function promptTitle(semanticSpec, raw) {
+  const value = String(raw || "").toLowerCase();
+  const directName = extractPromptName(raw);
+  if (directName) return directName;
+  const phrase = extractPromptPhrase(raw);
+
   const descriptor = hasAny(value, ["neon", "\u9713\u8679", "\u8367\u5149"])
     ? "Neon"
     : hasAny(value, ["space", "\u592a\u7a7a", "\u661f"])
       ? "Star"
+      : hasAny(value, ["moon", "lunar", "\u6708\u7403", "\u6708\u9762"])
+        ? "Lunar"
       : hasAny(value, ["ocean", "\u6d77", "\u6c34"])
         ? "Aqua"
         : "AI";
-  const nouns = {
-    "asteroid-dodge": "Dodge Run",
-    "orb-collector": "Orb Hunt",
-    "target-clicker": "Target Burst",
-    "snake-trail": "Trail Snake",
-    "lane-runner": "Lane Rush",
-    "orbit-guard": "Orbit Shield",
-    "paddle-breaker": "Paddle Break",
-    "pong-duel": "Pong Duel",
-    "billiards-break": "Pocket Break",
-    "sky-jumper": "Sky Jump",
-    "pulse-defense": "Tower Pulse"
+  if (phrase) return `${descriptor} ${phrase}`;
+  const names = {
+    grid: "Logic Board",
+    stage: "Timing Stage",
+    queue: "Service Loop",
+    arena: "Action Space",
+    lanes: "Motion Track",
+    sandbox: "Build Space",
+    map: "Story Map",
+    field: "Prompt Field"
   };
-  return `${descriptor} ${nouns[category] || "Game"}`;
+  return `${descriptor} ${names[semanticSpec.layout] || "Prompt Field"}`;
+}
+
+function extractPromptPhrase(raw) {
+  const cleaned = String(raw || "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/[<>]/g, "")
+    .replace(/^(please\s+)?(make|create|build|generate)\s+(a|an|one)?\s*/i, "")
+    .replace(/^(做|生成|创建|制作)(一个|一款)?/u, "")
+    .replace(/(小游戏|游戏|game)$/iu, "")
+    .trim();
+  const first = cleaned.split(/[,.，。:：;；]/)[0].trim();
+  if (!first) return "";
+  if (/[\u4e00-\u9fa5]/.test(first)) return first.slice(0, 10);
+  return first.split(/\s+/).filter((word) => !["with", "and", "that", "where"].includes(word.toLowerCase())).slice(0, 3).join(" ");
+}
+
+function promptSubtitle(raw, semanticSpec) {
+  return `${semanticSpec.genreLabel}: ${shortenPrompt(raw, 96)}`;
+}
+
+function extractPromptName(raw) {
+  const cleaned = String(raw || "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/[<>]/g, "")
+    .trim();
+  const named = cleaned.match(/(?:title|name|叫|名为|名字是)[:：]?\s*([A-Za-z0-9\u4e00-\u9fa5][A-Za-z0-9\u4e00-\u9fa5\s-]{1,24})/i);
+  if (named) return shortenPrompt(named[1], 28);
+  return "";
 }
 
 function buildAgentTrace(prompt, game, promptProfile) {
+  const semanticSpec = game.semanticSpec || promptProfile.semanticSpec || createSemanticSpec(prompt || "");
+  const route = promptProfile.raw
+    ? `accepted as a prompt-native concept (${game.genreLabel}); no fixed game-category router was used`
+    : `open-mix request; semantic runtime sampled mechanics without a preset category list`;
+
   return [
     {
       speaker: "User",
       text: promptProfile.raw || "Random preview request"
     },
     {
-      speaker: "Agent",
-      text: `Mapped prompt to ${game.category} with ${game.spriteKit} assets.`
+      speaker: "Intent Router",
+      text: `${route}. Preserved prompt summary: ${promptProfile.summary || "button-triggered random generation"}.`
+    },
+    {
+      speaker: "Creative Director",
+      text: `Fantasy="${semanticSpec.studioPlan.creativeDirector.fantasy}". Pillars=${semanticSpec.studioPlan.creativeDirector.pillars.join(" / ")}.`
+    },
+    {
+      speaker: "Game Designer",
+      text: `Core loop="${semanticSpec.studioPlan.gameDesigner.microLoop}". Runtime blueprint=${semanticSpec.runtimeBlueprint.id}.`
+    },
+    {
+      speaker: "Systems Designer",
+      text: `Extracted mechanics=${semanticSpec.mechanics.map((item) => item.label).join(" + ")}; entities=${semanticSpec.studioPlan.systemsDesigner.entities.join(", ")}; pressure="${semanticSpec.studioPlan.systemsDesigner.failurePressure}".`
+    },
+    {
+      speaker: "Mechanic Compiler",
+      text: `Compiled prompt rules: ${semanticSpec.rules.join("; ")}. Controls="${game.controls}".`
+    },
+    {
+      speaker: "Reasoning Pass",
+      text: semanticSpec.reasoningPasses.join(" | ")
+    },
+    {
+      speaker: "Visual Director",
+      text: `Loaded ${game.visualSkillSet.name}: backdrop=${game.visualSkillSet.backdrop}, material=${game.visualSkillSet.material}, task-frame=${game.visualSkillSet.taskFrame}.`
+    },
+    {
+      speaker: "Sprite Painter",
+      text: `Theme=${game.theme.name}; sprite kit=${game.spriteKit}; player=${game.playerShape}; hazard=${game.enemyShape}; pickup=${game.collectibleShape}; props=${game.visualSkillSet.props.slice(0, 4).map((prop) => prop.kind).join("/")}.`
+    },
+    {
+      speaker: "Runtime Builder",
+      text: `Generated ${semanticSpec.runtimeBlueprint.label} runtime with screen pattern=${semanticSpec.studioPlan.levelDesigner.screenPattern}, spawn pattern=${semanticSpec.studioPlan.levelDesigner.spawnPattern}, HUD=${semanticSpec.studioPlan.uxDesigner.hud}.`
+    },
+    {
+      speaker: "QA Lead",
+      text: `Checked acceptance: ${semanticSpec.studioPlan.qaLead.acceptance.join(" ")} Win="${semanticSpec.winCondition}". Fail="${semanticSpec.failCondition}".`
+    },
+    {
+      speaker: "Packager",
+      text: `Wrote index.html/styles.css/script.js, verified required three-file zip contract, extracted preview iframe source.`
     },
     {
       speaker: "Agent",
-      text: `Picked ${game.theme.name} colors and wrote controls: ${game.controls}`
-    },
-    {
-      speaker: "Agent",
-      text: `Generated ${game.title}, zipped index.html/styles.css/script.js, and prepared preview.`
+      text: `Ready: ${game.title}. Prompt-led settings were applied before randomization.`
     }
   ];
 }
@@ -220,6 +731,62 @@ function shortenPrompt(value, max) {
   return compact.length > max ? `${compact.slice(0, max - 3)}...` : compact;
 }
 
+function openGenreLabel(raw) {
+  return createSemanticSpec(raw).genreLabel;
+}
+function promptTaskLabels(mode) {
+  const semanticSpec = typeof mode === "object" ? mode : null;
+  if (semanticSpec?.labels?.length) return semanticSpec.labels;
+  const source = String(mode || "prompt").split(/[:+/-]/).filter(Boolean);
+  const labels = source.map((item) => item[0].toUpperCase() + item.slice(1, 10));
+  return Array.from(new Set([...labels, "Act", "React", "Score", "Finish"])).slice(0, 8);
+}
+
+function createVisualSkillSet(promptProfile, category, spriteKit, theme, rng) {
+  const semanticSpec = promptProfile.semanticSpec || createSemanticSpec(promptProfile.raw || "");
+  const layout = semanticSpec.layout || "field";
+  const value = String(promptProfile.raw || "").toLowerCase();
+  const serviceTiming = layout === "stage" && hasAny(value, ["restaurant", "chef", "cook", "kitchen", "dish", "serve", "\u9910\u5385", "\u53a8\u623f", "\u4e0a\u83dc", "\u505a\u83dc", "\u5ba2\u4eba"]);
+  const base = serviceTiming
+    ? {
+        name: "Kitchen Beat Animation Kit",
+        backdrop: "rhythm-service-counter",
+        surface: "checker-counter",
+        taskFrame: "beat-order-ticket",
+        props: ["service-bell", "dish-plate", "steam", "customer-bubble", "beat-lane", "note-burst", "equalizer"],
+        particles: ["steam", "note", "spark"],
+        material: "animated menu-board sprites"
+      }
+    : visualSkillSets[layout] || visualSkillSets.field;
+  const artTags = [];
+
+  if (hasAny(value, ["cute", "cozy", "kawaii", "可爱", "治愈", "温馨"])) artTags.push("rounded cute proportions");
+  if (hasAny(value, ["horror", "dark", "恐怖", "黑暗", "诡异"])) artTags.push("dramatic shadows");
+  if (hasAny(value, ["pixel", "像素"])) artTags.push("pixel-art edges");
+  if (hasAny(value, ["watercolor", "水彩"])) artTags.push("soft watercolor glow");
+  if (hasAny(value, ["cyber", "sci-fi", "赛博", "科幻"])) artTags.push("holographic UI trim");
+  if (promptProfile.semanticSpec?.flags?.hiddenInfo) artTags.push("numbered clue cells");
+  if (promptProfile.semanticSpec?.flags?.pairLogic) artTags.push("connectable objective tiles");
+
+  const propPool = [...base.props, ...(spriteKit.decor || [])];
+  const props = Array.from({ length: 14 }, (_, index) => ({
+    kind: propPool[index % propPool.length],
+    x: Math.floor(50 + rng() * 860),
+    y: Math.floor(68 + rng() * 390),
+    size: Math.floor(18 + rng() * 48),
+    alpha: 0.08 + rng() * 0.22,
+    drift: (rng() - 0.5) * 0.55
+  }));
+
+  return {
+    ...base,
+    theme: theme.name,
+    artTags: artTags.length ? artTags : ["layered procedural canvas sprites"],
+    props,
+    particleColors: [theme.accent, theme.secondary, theme.danger, "#f2f8ef"]
+  };
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -230,6 +797,8 @@ function escapeHtml(value) {
 }
 
 function buildGame(category, seed, promptProfile = {}) {
+  category = OPEN_RUNTIME_ID;
+  const semanticSpec = promptProfile.semanticSpec || createSemanticSpec(promptProfile.raw || "");
   const rng = mulberry32(seed);
   const theme = promptProfile.themeName
     ? themes.find((item) => item.name === promptProfile.themeName) || randomItem(themes)
@@ -240,6 +809,7 @@ function buildGame(category, seed, promptProfile = {}) {
   const playerShape = spriteKit.player;
   const enemyShape = spriteKit.enemy;
   const collectibleShape = spriteKit.collectible;
+  const visualSkillSet = createVisualSkillSet(promptProfile, category, spriteKit, theme, rng);
   const decoration = Array.from({ length: 18 }, (_, index) => ({
     x: Math.floor(rng() * 960),
     y: Math.floor(rng() * 540),
@@ -248,35 +818,36 @@ function buildGame(category, seed, promptProfile = {}) {
     alpha: 0.08 + rng() * 0.18
   }));
 
-  const presets = {
-    "asteroid-dodge": ["Meteor Weave", "slide through falling hazards", "Move with mouse/touch or Arrow keys."],
-    "orb-collector": ["Orb Sprint", "collect bright cores before the timer fades", "Move with mouse/touch or Arrow keys."],
-    "target-clicker": ["Tap Burst", "hit targets as they bloom", "Click or tap targets quickly."],
-    "snake-trail": ["Neon Trail", "grow the trail without biting yourself", "Use Arrow keys or WASD."],
-    "lane-runner": ["Lane Shift", "swap lanes through incoming gates", "Use Up/Down, W/S, or tap lanes."],
-    "orbit-guard": ["Orbit Guard", "rotate a shield around the core", "Click/tap or press Space to flip orbit direction."],
-    "paddle-breaker": ["Prism Paddle", "bounce the core through a patterned wall", "Move with mouse/touch or Arrow keys."],
-    "pong-duel": ["Pulse Pong", "rally against a reactive AI paddle", "Move your paddle with mouse/touch or W/S."],
-    "billiards-break": ["Neon Billiards", "strike the cue orb into glowing pockets", "Aim with mouse/touch, release to shoot."],
-    "sky-jumper": ["Sky Hop", "chain platforms and collect sparks", "Press Space/ArrowUp or tap to double jump."],
-    "pulse-defense": ["Pulse Defense", "place emitters to stop the wave", "Click empty cells to place towers."]
-  };
-  const [baseTitle, baseSubtitle, controls] = presets[category];
-  const title = promptProfile.raw ? promptTitle(category, promptProfile.raw.toLowerCase()) : baseTitle;
-  const subtitle = promptProfile.subtitle || baseSubtitle;
-  const promptSummary = promptProfile.summary || "Randomized quick preview";
+  const title = promptProfile.raw ? promptProfile.title : "AI Prompt Game";
+  const subtitle = promptProfile.subtitle || semanticSpec.objective;
+  const resolvedControls = promptProfile.controls || semanticSpec.controls;
+  const promptSummary = promptProfile.summary || "Open semantic preview";
+  const modeLabel = promptProfile.raw ? "Semantic Prompt" : "Semantic Mix";
+  const genreLabel = semanticSpec.genreLabel;
+  const promptMode = semanticSpec.mode;
   const generationNotes = [
-    `mode=${category}`,
+    `mode=${modeLabel}`,
+    `semanticGenre=${genreLabel}`,
+    `runtime=${OPEN_RUNTIME_ID}`,
+    `blueprint=${semanticSpec.runtimeBlueprint.id}`,
+    `layout=${semanticSpec.layout}`,
+    `mechanics=${semanticSpec.mechanics.map((item) => item.id).join("+")}`,
     `theme=${theme.name}`,
-    `assets=${spriteKit.name}`
+    `assets=${spriteKit.name}`,
+    promptProfile.raw ? "source=prompt-semantic" : "source=open-random"
   ];
 
   return {
     title,
     subtitle,
     category,
-    controls,
+    modeLabel,
+    genreLabel,
+    promptMode,
+    promptLabels: semanticSpec.labels || promptTaskLabels(semanticSpec),
+    controls: resolvedControls,
     promptSummary,
+    semanticSpec,
     generationNotes,
     theme,
     seed,
@@ -284,7 +855,8 @@ function buildGame(category, seed, promptProfile = {}) {
     enemyShape,
     collectibleShape,
     decoration,
-    spriteKit: spriteKit.name
+    spriteKit: spriteKit.name,
+    visualSkillSet
   };
 }
 
@@ -408,21 +980,28 @@ strong { color: var(--accent); font-size: 18px; }
 `;
 }
 
-function buildScript(game) {
+function buildSemanticScript(game) {
   const config = {
-    category: game.category,
+    runtime: OPEN_RUNTIME_ID,
     title: game.title,
-    storageKey: `preview-${game.category}-best`,
+    storageKey: `preview-${OPEN_RUNTIME_ID}-${game.seed}-best`,
     accent: game.theme.accent,
     secondary: game.theme.secondary,
     danger: game.theme.danger,
     bg: game.theme.bg,
     pattern: game.theme.pattern,
+    promptMode: game.promptMode,
+    promptSummary: game.promptSummary,
+    promptLabels: game.promptLabels,
+    semanticSpec: game.semanticSpec,
+    studioPlan: game.semanticSpec.studioPlan,
+    runtimeBlueprint: game.semanticSpec.runtimeBlueprint,
     playerShape: game.playerShape,
     enemyShape: game.enemyShape,
     collectibleShape: game.collectibleShape,
     decoration: game.decoration,
-    spriteKit: game.spriteKit
+    spriteKit: game.spriteKit,
+    visualSkillSet: game.visualSkillSet
   };
 
   return `const CONFIG = ${JSON.stringify(config)};
@@ -432,41 +1011,74 @@ const scoreEl = document.querySelector("#scoreValue");
 const bestEl = document.querySelector("#bestValue");
 const restartButton = document.querySelector("#restartButton");
 const keys = new Set();
-const pointer = { active: false, x: 480, y: 270 };
+const pointer = { active: false, x: 480, y: 270, downX: 480, downY: 270, dragging: false, marked: false };
 let state;
+let longPressTimer = null;
+
+function runtimeId() {
+  return CONFIG.runtimeBlueprint && CONFIG.runtimeBlueprint.id ? CONFIG.runtimeBlueprint.id : CONFIG.semanticSpec.layout;
+}
 
 function reset() {
+  const runtime = runtimeId();
   state = {
     tick: 0,
     score: 0,
     best: Number(localStorage.getItem(CONFIG.storageKey) || 0),
     over: false,
-    player: { x: 160, y: 270, vx: 0, vy: 0, size: 34, lane: 1, jumps: 0, angle: 0 },
-    ball: { x: 480, y: 400, vx: 5, vy: -5, r: 12 },
-    paddle: { x: 410, y: 492, w: 140, h: 16 },
-    enemies: [],
-    items: [],
-    shots: [],
-    trail: [{ x: 220, y: 270 }],
-    dir: { x: 1, y: 0 },
-    bricks: [],
-    towers: [],
-    cash: 80,
-    lives: 8
+    win: false,
+    lives: CONFIG.semanticSpec.flags.hiddenInfo ? 1 : 6,
+    resources: CONFIG.semanticSpec.flags.economy ? 90 : 0,
+    targetScore: CONFIG.semanticSpec.flags.wavePressure ? 900 : 640,
+    combo: 0,
+    focus: { x: 180, y: 290, vx: 0, vy: 0, size: 34 },
+    tasks: [],
+    grid: [],
+    actors: [],
+    projectiles: [],
+    particles: [],
+    selected: null,
+    wave: 0,
+    laneIndex: 1,
+    buildLevel: 1,
+    progress: 0,
+    stationPressure: 0
   };
+  if (runtime === "lane-traversal") state.focus.y = laneY(state.laneIndex);
+  if (runtime === "queue-service") state.focus.y = canvas.height - 104;
+  if (runtime === "sandbox-builder") state.resources = 120;
+  if (runtime === "quest-map") state.targetScore = 520;
+  if (CONFIG.semanticSpec.layout === "grid") state.grid = createSemanticGrid();
+  state.tasks = createSemanticTasks(initialTaskCount(runtime));
+  for (let i = 0; i < initialActorCount(runtime); i += 1) spawnActor(i);
+}
 
-  if (CONFIG.category === "paddle-breaker") {
-    for (let row = 0; row < 5; row += 1) {
-      for (let col = 0; col < 10; col += 1) {
-        state.bricks.push({ x: 72 + col * 82, y: 70 + row * 34, w: 66, h: 18, alive: true, shade: (row + col) % 3 });
-      }
-    }
-  }
+function initialTaskCount(runtime) {
+  return {
+    "grid-reveal": 3,
+    "grid-link": 3,
+    "timing-stage": 9,
+    "queue-service": 5,
+    "lane-traversal": 8,
+    "sandbox-builder": 6,
+    "quest-map": 7,
+    "arena-action": 6
+  }[runtime] || 7;
+}
 
-  if (CONFIG.category === "sky-jumper") {
-    state.items = [{ x: 460, y: 350 }, { x: 760, y: 270 }];
-    state.enemies = [{ x: 80, y: canvas.height - 70, w: 240 }, { x: 380, y: 390, w: 170 }, { x: 680, y: 310, w: 190 }];
-  }
+function initialActorCount(runtime) {
+  return {
+    "queue-service": 4,
+    "arena-action": 7,
+    "lane-traversal": 4,
+    "quest-map": 2,
+    "sandbox-builder": 0,
+    "timing-stage": 0
+  }[runtime] || 5;
+}
+
+function laneY(index) {
+  return 112 + Math.max(0, Math.min(3, index)) * 92;
 }
 
 function loop() {
@@ -478,261 +1090,441 @@ function loop() {
 function update() {
   state.tick += 1;
   if (!state.over) {
-    if (CONFIG.category === "asteroid-dodge") updateDodge();
-    if (CONFIG.category === "orb-collector") updateCollector();
-    if (CONFIG.category === "target-clicker") updateTargets();
-    if (CONFIG.category === "snake-trail") updateSnake();
-    if (CONFIG.category === "lane-runner") updateLane();
-    if (CONFIG.category === "orbit-guard") updateOrbit();
-    if (CONFIG.category === "paddle-breaker") updatePaddle();
-    if (CONFIG.category === "pong-duel") updatePong();
-    if (CONFIG.category === "billiards-break") updateBilliards();
-    if (CONFIG.category === "sky-jumper") updateJumper();
-    if (CONFIG.category === "pulse-defense") updateDefense();
+    updateFocus();
+    updateTasks();
+    updateActors();
+    updateProjectiles();
+    updateParticles();
+    checkWinLoss();
   }
   scoreEl.textContent = state.score;
   bestEl.textContent = state.best;
 }
 
-function updateDodge() {
-  movePlayer(5.4);
-  if (state.tick % 28 === 0) state.enemies.push({ x: Math.random() * canvas.width, y: -40, vy: 2.8 + state.score * 0.01, size: 24 + Math.random() * 32, rot: Math.random() * 6 });
-  state.enemies.forEach(enemy => { enemy.y += enemy.vy; enemy.rot += 0.04; });
-  state.enemies = state.enemies.filter(enemy => enemy.y < canvas.height + 60);
-  if (state.enemies.some(enemy => hitCircle(state.player, enemy, enemy.size * 0.45))) finish();
-  state.score += 1;
-}
-
-function updateCollector() {
-  movePlayer(5.8);
-  if (state.tick % 38 === 0) state.items.push({ x: 50 + Math.random() * (canvas.width - 100), y: 70 + Math.random() * (canvas.height - 150), size: 16 + Math.random() * 16, life: 260 });
-  if (state.tick % 62 === 0) state.enemies.push({ x: canvas.width + 40, y: 80 + Math.random() * (canvas.height - 160), vx: -2.4 - Math.random() * 1.8, size: 28 });
-  state.items.forEach(item => item.life -= 1);
-  state.enemies.forEach(enemy => enemy.x += enemy.vx);
-  state.items = state.items.filter(item => {
-    if (hitCircle(state.player, item, item.size)) { state.score += 45; return false; }
-    return item.life > 0;
+function createSemanticGrid() {
+  const flags = CONFIG.semanticSpec.flags;
+  const cols = flags.hiddenInfo ? 10 : 8;
+  const rows = flags.hiddenInfo ? 8 : 6;
+  const labels = CONFIG.promptLabels.length ? CONFIG.promptLabels : ["A", "B", "C", "D"];
+  const grid = Array.from({ length: rows }, function(_, row) {
+    return Array.from({ length: cols }, function(_, col) {
+      return { row: row, col: col, revealed: false, marked: false, cleared: false, hazard: false, count: 0, value: "" };
+    });
   });
-  state.enemies = state.enemies.filter(enemy => enemy.x > -60);
-  if (state.enemies.some(enemy => hitCircle(state.player, enemy, enemy.size * 0.6))) finish();
-}
-
-function updateTargets() {
-  if (state.tick % 34 === 0 && state.items.length < 8) state.items.push({ x: 70 + Math.random() * (canvas.width - 140), y: 80 + Math.random() * (canvas.height - 160), size: 20 + Math.random() * 26, life: 120 });
-  state.items.forEach(item => { item.life -= 1; item.size += 0.04; });
-  state.items = state.items.filter(item => item.life > 0);
-  state.score = Math.max(0, state.score - (state.tick % 45 === 0 ? 1 : 0));
-}
-
-function updateSnake() {
-  if (keys.has("ArrowUp") || keys.has("KeyW")) state.dir = { x: 0, y: -1 };
-  if (keys.has("ArrowDown") || keys.has("KeyS")) state.dir = { x: 0, y: 1 };
-  if (keys.has("ArrowLeft") || keys.has("KeyA")) state.dir = { x: -1, y: 0 };
-  if (keys.has("ArrowRight") || keys.has("KeyD")) state.dir = { x: 1, y: 0 };
-  if (state.items.length === 0) state.items.push({ x: 40 + Math.floor(Math.random() * 22) * 38, y: 60 + Math.floor(Math.random() * 11) * 38, size: 16 });
-  if (state.tick % 8 !== 0) return;
-  const head = state.trail[0];
-  const next = { x: head.x + state.dir.x * 28, y: head.y + state.dir.y * 28 };
-  if (next.x < 20 || next.x > canvas.width - 20 || next.y < 50 || next.y > canvas.height - 30) return finish();
-  if (state.trail.some(part => Math.hypot(part.x - next.x, part.y - next.y) < 6)) return finish();
-  state.trail.unshift(next);
-  const food = state.items[0];
-  if (Math.hypot(food.x - next.x, food.y - next.y) < 26) {
-    state.score += 30;
-    state.items = [];
-  } else {
-    state.trail.pop();
-  }
-}
-
-function updateLane() {
-  const lanes = [160, 270, 380];
-  state.player.y += (lanes[state.player.lane] - state.player.y) * 0.25;
-  state.player.x = 155;
-  if (state.tick % 34 === 0) {
-    const blocked = Math.floor(Math.random() * 3);
-    state.enemies.push({ x: canvas.width + 50, y: lanes[blocked], lane: blocked, w: 38, h: 72, vx: -5.4 - state.score * 0.006 });
-    if (Math.random() > 0.45) state.items.push({ x: canvas.width + 160, y: lanes[(blocked + 1 + Math.floor(Math.random() * 2)) % 3], size: 16 });
-  }
-  state.enemies.forEach(enemy => enemy.x += enemy.vx);
-  state.items.forEach(item => item.x -= 5.2);
-  state.enemies = state.enemies.filter(enemy => enemy.x > -80);
-  state.items = state.items.filter(item => {
-    if (hitCircle(state.player, item, item.size)) { state.score += 55; return false; }
-    return item.x > -50;
-  });
-  if (state.enemies.some(enemy => Math.abs(enemy.x - state.player.x) < 34 && enemy.lane === state.player.lane)) finish();
-  state.score += 1;
-}
-
-function updateOrbit() {
-  const core = { x: canvas.width / 2, y: canvas.height / 2 };
-  state.player.angle += state.player.vx || 0.045;
-  state.player.x = core.x + Math.cos(state.player.angle) * 92;
-  state.player.y = core.y + Math.sin(state.player.angle) * 92;
-  if (state.tick % 42 === 0) {
-    const angle = Math.random() * Math.PI * 2;
-    state.enemies.push({ x: core.x + Math.cos(angle) * 420, y: core.y + Math.sin(angle) * 320, vx: Math.cos(angle + Math.PI) * 2.6, vy: Math.sin(angle + Math.PI) * 2.6, size: 28 });
-  }
-  state.enemies.forEach(enemy => { enemy.x += enemy.vx; enemy.y += enemy.vy; });
-  state.enemies = state.enemies.filter(enemy => {
-    if (Math.hypot(enemy.x - state.player.x, enemy.y - state.player.y) < 34) { state.score += 35; return false; }
-    if (Math.hypot(enemy.x - core.x, enemy.y - core.y) < 24) { finish(); return false; }
-    return true;
-  });
-}
-
-function updatePaddle() {
-  if (pointer.active) state.paddle.x += (pointer.x - state.paddle.w / 2 - state.paddle.x) * 0.35;
-  if (keys.has("ArrowLeft")) state.paddle.x -= 8;
-  if (keys.has("ArrowRight")) state.paddle.x += 8;
-  state.ball.x += state.ball.vx;
-  state.ball.y += state.ball.vy;
-  if (state.ball.x < state.ball.r || state.ball.x > canvas.width - state.ball.r) state.ball.vx *= -1;
-  if (state.ball.y < state.ball.r) state.ball.vy *= -1;
-  if (state.ball.y > canvas.height + 40) finish();
-  if (state.ball.x > state.paddle.x && state.ball.x < state.paddle.x + state.paddle.w && state.ball.y + state.ball.r > state.paddle.y && state.ball.vy > 0) {
-    state.ball.vy *= -1;
-    state.ball.vx += (state.ball.x - (state.paddle.x + state.paddle.w / 2)) * 0.035;
-  }
-  state.bricks.forEach(brick => {
-    if (!brick.alive) return;
-    const hit = state.ball.x + state.ball.r > brick.x && state.ball.x - state.ball.r < brick.x + brick.w && state.ball.y + state.ball.r > brick.y && state.ball.y - state.ball.r < brick.y + brick.h;
-    if (hit) { brick.alive = false; state.ball.vy *= -1; state.score += 15; }
-  });
-}
-
-function updatePong() {
-  const p = state.player;
-  p.x = 48;
-  if (pointer.active) p.y += (pointer.y - p.y) * 0.22;
-  if (keys.has("KeyW") || keys.has("ArrowUp")) p.y -= 7;
-  if (keys.has("KeyS") || keys.has("ArrowDown")) p.y += 7;
-  p.y = Math.max(82, Math.min(canvas.height - 82, p.y));
-  const ai = state.paddle;
-  ai.x = canvas.width - 66;
-  ai.y += (state.ball.y - ai.y) * 0.075;
-  ai.y = Math.max(82, Math.min(canvas.height - 82, ai.y));
-  state.ball.x += state.ball.vx;
-  state.ball.y += state.ball.vy;
-  if (state.ball.y < 38 || state.ball.y > canvas.height - 38) state.ball.vy *= -1;
-  const leftHit = state.ball.x - state.ball.r < p.x + 16 && Math.abs(state.ball.y - p.y) < 72 && state.ball.vx < 0;
-  const rightHit = state.ball.x + state.ball.r > ai.x - 16 && Math.abs(state.ball.y - ai.y) < 72 && state.ball.vx > 0;
-  if (leftHit || rightHit) {
-    state.ball.vx *= -1.05;
-    state.ball.vy += ((state.ball.y - (leftHit ? p.y : ai.y)) / 72) * 2.2;
-    state.score += 12;
-  }
-  if (state.ball.x < -50) finish();
-  if (state.ball.x > canvas.width + 50) {
-    state.score += 120;
-    state.ball.x = canvas.width / 2;
-    state.ball.y = canvas.height / 2;
-    state.ball.vx = -5 - Math.random() * 2;
-    state.ball.vy = (Math.random() - 0.5) * 7;
-  }
-}
-
-function updateBilliards() {
-  if (state.items.length === 0) {
-    state.items = Array.from({ length: 7 }, (_, index) => ({
-      x: 560 + (index % 3) * 34,
-      y: 210 + Math.floor(index / 3) * 42,
-      vx: 0,
-      vy: 0,
-      size: 22,
-      pocketed: false,
-      color: index % 2 ? CONFIG.secondary : CONFIG.danger
-    }));
-    state.ball = { x: 250, y: 300, vx: 0, vy: 0, r: 14 };
-  }
-  const balls = [state.ball, ...state.items.filter(item => !item.pocketed)];
-  balls.forEach(ball => {
-    ball.x += ball.vx;
-    ball.y += ball.vy;
-    ball.vx *= 0.985;
-    ball.vy *= 0.985;
-    if (Math.abs(ball.vx) < 0.015) ball.vx = 0;
-    if (Math.abs(ball.vy) < 0.015) ball.vy = 0;
-    if (ball.x < 70 || ball.x > canvas.width - 70) ball.vx *= -0.86;
-    if (ball.y < 76 || ball.y > canvas.height - 76) ball.vy *= -0.86;
-    ball.x = Math.max(70, Math.min(canvas.width - 70, ball.x));
-    ball.y = Math.max(76, Math.min(canvas.height - 76, ball.y));
-  });
-  for (let i = 0; i < balls.length; i += 1) {
-    for (let j = i + 1; j < balls.length; j += 1) {
-      const a = balls[i], b = balls[j];
-      const dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy) || 1;
-      if (dist < 30) {
-        const nx = dx / dist, ny = dy / dist;
-        const push = (30 - dist) * 0.5;
-        a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
-        const impulse = ((a.vx - b.vx) * nx + (a.vy - b.vy) * ny) * 0.9;
-        a.vx -= impulse * nx; a.vy -= impulse * ny; b.vx += impulse * nx; b.vy += impulse * ny;
+  if (flags.hiddenInfo) {
+    const hazardCount = Math.max(8, Math.floor(cols * rows * 0.18));
+    let placed = 0;
+    while (placed < hazardCount) {
+      const tile = grid[Math.floor(Math.random() * rows)][Math.floor(Math.random() * cols)];
+      if (!tile.hazard) {
+        tile.hazard = true;
+        placed += 1;
       }
     }
-  }
-  const pockets = [[58, 64], [canvas.width / 2, 58], [canvas.width - 58, 64], [58, canvas.height - 58], [canvas.width / 2, canvas.height - 54], [canvas.width - 58, canvas.height - 58]];
-  state.items.forEach(item => {
-    if (item.pocketed) return;
-    if (pockets.some(([x, y]) => Math.hypot(item.x - x, item.y - y) < 34)) {
-      item.pocketed = true;
-      state.score += 90;
+    grid.flat().forEach(function(tile) {
+      tile.count = neighbors(tile).filter(function(cell) { return cell.hazard; }).length;
+    });
+  } else if (flags.pairLogic) {
+    const deck = [];
+    for (let i = 0; i < cols * rows / 2; i += 1) {
+      const value = labels[i % labels.length].slice(0, 2).toUpperCase();
+      deck.push(value, value);
     }
-  });
-  if (pockets.some(([x, y]) => Math.hypot(state.ball.x - x, state.ball.y - y) < 28)) {
-    state.ball.x = 250; state.ball.y = 300; state.ball.vx = 0; state.ball.vy = 0;
+    for (let i = deck.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = deck[i];
+      deck[i] = deck[j];
+      deck[j] = temp;
+    }
+    grid.flat().forEach(function(tile, index) { tile.value = deck[index]; });
+  } else {
+    grid.flat().forEach(function(tile, index) { tile.value = labels[index % labels.length].slice(0, 2).toUpperCase(); });
   }
-  if (state.items.every(item => item.pocketed)) finish();
+  return grid;
 }
 
-function updateJumper() {
-  const p = state.player;
-  p.vy += 0.55;
-  p.y += p.vy;
-  state.enemies.forEach(platform => platform.x -= 4.2);
-  state.items.forEach(item => item.x -= 4.2);
-  for (const platform of state.enemies) {
-    if (p.x + p.size > platform.x && p.x < platform.x + platform.w && p.y + p.size > platform.y - 10 && p.y + p.size < platform.y + 18 && p.vy >= 0) {
-      p.y = platform.y - p.size;
-      p.vy = 0;
-      p.jumps = 0;
+function neighbors(tile) {
+  const result = [];
+  for (let row = tile.row - 1; row <= tile.row + 1; row += 1) {
+    for (let col = tile.col - 1; col <= tile.col + 1; col += 1) {
+      if (row === tile.row && col === tile.col) continue;
+      const next = state.grid[row] && state.grid[row][col];
+      if (next) result.push(next);
     }
   }
-  state.items = state.items.filter(item => {
-    if (hitCircle(p, item, 22)) { state.score += 70; return false; }
-    return item.x > -50;
-  });
-  state.enemies = state.enemies.filter(platform => platform.x + platform.w > -30);
-  while (state.enemies.length < 4) {
-    const last = state.enemies[state.enemies.length - 1];
-    const y = 260 + Math.random() * 220;
-    state.enemies.push({ x: last.x + last.w + 160 + Math.random() * 160, y, w: 130 + Math.random() * 140 });
-    if (Math.random() > 0.35) state.items.push({ x: last.x + last.w + 240, y: y - 46, size: 16 });
-  }
-  if (p.y > canvas.height + 80) finish();
-  state.score += 1;
+  return result;
 }
 
-function updateDefense() {
-  if (state.tick % 62 === 0) state.enemies.push({ x: -30, y: canvas.height * 0.58 + Math.sin(state.tick * 0.03) * 80, hp: 42 + state.score * 0.08, max: 42 + state.score * 0.08, speed: 0.8 + state.score * 0.002, size: 30 });
-  state.enemies.forEach(enemy => enemy.x += enemy.speed);
-  state.enemies = state.enemies.filter(enemy => {
-    if (enemy.x > canvas.width + 40) { state.lives -= 1; if (state.lives <= 0) finish(); return false; }
-    return enemy.hp > 0;
+function createSemanticTasks(count) {
+  const runtime = runtimeId();
+  const labels = CONFIG.promptLabels.length ? CONFIG.promptLabels : ["Act", "React", "Score", "Solve"];
+  const tasks = [];
+  for (let i = 0; i < count; i += 1) {
+    const mechanic = CONFIG.semanticSpec.mechanics[i % CONFIG.semanticSpec.mechanics.length] || { id: "collect", label: "Collect" };
+    const lane = i % 4;
+    const stationX = 145 + (i % 5) * 168;
+    tasks.push({
+      x: taskStartX(runtime, stationX),
+      y: taskStartY(runtime, lane, i),
+      lane: lane,
+      station: i % 5,
+      vx: taskStartVx(runtime),
+      vy: (Math.random() - 0.5) * 0.8,
+      size: 34 + Math.random() * 26,
+      label: labels[(i + Math.floor(Math.random() * labels.length)) % labels.length],
+      mechanic: mechanic.id,
+      value: 35 + i * 8,
+      life: taskStartLife(runtime),
+      phase: Math.random() * Math.PI * 2,
+      linked: false,
+      level: 1 + Math.floor(Math.random() * 3)
+    });
+  }
+  return tasks;
+}
+
+function taskStartX(runtime, stationX) {
+  if (runtime === "timing-stage" || runtime === "lane-traversal") return canvas.width + 60 + Math.random() * 360;
+  if (runtime === "queue-service" || runtime === "sandbox-builder") return stationX;
+  if (runtime === "quest-map") return 120 + Math.random() * (canvas.width - 240);
+  return 80 + Math.random() * (canvas.width - 160);
+}
+
+function taskStartY(runtime, lane, index) {
+  if (runtime === "lane-traversal") return laneY(lane);
+  if (runtime === "timing-stage") return 108 + lane * 86;
+  if (runtime === "queue-service") return canvas.height - 118 - (index % 2) * 74;
+  if (runtime === "sandbox-builder") return 128 + Math.floor(index / 3) * 138;
+  if (runtime === "quest-map") return 96 + Math.random() * (canvas.height - 210);
+  return 82 + Math.random() * (canvas.height - 168);
+}
+
+function taskStartVx(runtime) {
+  if (runtime === "timing-stage") return -(2.6 + Math.random() * 1.5);
+  if (runtime === "lane-traversal") return -(2.2 + Math.random() * 2.2);
+  if (runtime === "queue-service" || runtime === "sandbox-builder" || runtime === "quest-map") return 0;
+  return (Math.random() - 0.5) * 1.2;
+}
+
+function taskStartLife(runtime) {
+  if (runtime === "queue-service") return 430;
+  if (runtime === "sandbox-builder") return 520;
+  if (runtime === "quest-map") return 460;
+  if (runtime === "timing-stage") return 280;
+  return CONFIG.semanticSpec.flags.economy ? 360 : 230 + Math.random() * 160;
+}
+
+function spawnActor(index) {
+  const runtime = runtimeId();
+  const hostile = runtime === "arena-action" || runtime === "lane-traversal" || (CONFIG.semanticSpec.flags.wavePressure && index % 2 === 0);
+  state.actors.push({
+    x: hostile ? canvas.width + 60 + Math.random() * 180 : 90 + index * 155,
+    y: runtime === "lane-traversal" ? laneY(index % 4) : runtime === "queue-service" ? canvas.height - 92 : 90 + Math.random() * (canvas.height - 170),
+    vx: hostile ? -(0.9 + Math.random() * 1.8 + state.wave * 0.08) : runtime === "queue-service" ? 0 : (Math.random() - 0.5) * 0.8,
+    vy: (Math.random() - 0.5) * 0.9,
+    hostile: hostile,
+    patience: 260 + Math.random() * 180,
+    hp: hostile ? 2 + Math.floor(state.wave / 3) : 1,
+    size: hostile ? 30 : 22
   });
-  state.towers.forEach(tower => {
-    tower.cooldown -= 1;
-    const target = state.enemies.find(enemy => Math.hypot(enemy.x - tower.x, enemy.y - tower.y) < 190);
-    if (target && tower.cooldown <= 0) {
-      tower.cooldown = 28;
-      state.shots.push({ x: tower.x, y: tower.y, target, life: 12 });
-      target.hp -= 14;
-      if (target.hp <= 0) { state.score += 25; state.cash += 12; }
+}
+
+function updateFocus() {
+  const runtime = runtimeId();
+  const speed = CONFIG.semanticSpec.flags.traversal ? 5.8 : 4.2;
+  if (runtime === "lane-traversal") {
+    if (keys.has("ArrowUp") || keys.has("KeyW")) state.laneIndex = Math.max(0, state.laneIndex - 1);
+    if (keys.has("ArrowDown") || keys.has("KeyS")) state.laneIndex = Math.min(3, state.laneIndex + 1);
+    state.focus.x += ((pointer.active ? pointer.x : 180) - state.focus.x) * 0.09;
+    state.focus.y += (laneY(state.laneIndex) - state.focus.y) * 0.24;
+    state.focus.x = Math.max(44, Math.min(canvas.width - 44, state.focus.x));
+    return;
+  }
+  if (runtime === "timing-stage") {
+    state.focus.x = 155;
+    state.focus.y = 270 + Math.sin(state.tick * 0.04) * 118;
+    return;
+  }
+  if (pointer.active && !pointer.dragging) {
+    state.focus.x += (pointer.x - state.focus.x) * 0.16;
+    state.focus.y += (pointer.y - state.focus.y) * 0.16;
+  }
+  if (keys.has("ArrowLeft") || keys.has("KeyA")) state.focus.x -= speed;
+  if (keys.has("ArrowRight") || keys.has("KeyD")) state.focus.x += speed;
+  if (keys.has("ArrowUp") || keys.has("KeyW")) state.focus.y -= speed;
+  if (keys.has("ArrowDown") || keys.has("KeyS")) state.focus.y += speed;
+  state.focus.x = Math.max(28, Math.min(canvas.width - 28, state.focus.x));
+  state.focus.y = Math.max(58, Math.min(canvas.height - 34, state.focus.y));
+}
+
+function updateTasks() {
+  const runtime = runtimeId();
+  state.tasks.forEach(function(task) {
+    task.phase += 0.04;
+    if (runtime === "timing-stage" || runtime === "lane-traversal") {
+      task.x += task.vx + Math.sin(task.phase) * 0.25;
+      if (task.x < -70) {
+        task.x = canvas.width + 80 + Math.random() * 240;
+        if (runtime === "lane-traversal") task.lane = Math.floor(Math.random() * 4);
+        task.y = taskStartY(runtime, task.lane, task.station);
+        state.lives -= 1;
+        state.combo = 0;
+      }
+    } else if (runtime === "queue-service") {
+      task.y += Math.sin(task.phase) * 0.08;
+      state.stationPressure += 0.0025;
+    } else if (runtime === "sandbox-builder" || runtime === "quest-map") {
+      task.size += Math.sin(task.phase) * 0.025;
+    } else {
+      task.x += task.vx;
+      task.y += task.vy;
+      if (task.x < 34 || task.x > canvas.width - 34) task.vx *= -1;
+      if (task.y < 72 || task.y > canvas.height - 48) task.vy *= -1;
+    }
+    task.life -= lifeDrainForRuntime(runtime);
+  });
+  const expired = state.tasks.filter(function(task) { return task.life <= 0; }).length;
+  if (expired) {
+    state.lives -= runtime === "sandbox-builder" ? Math.ceil(expired / 2) : expired;
+    state.stationPressure += runtime === "queue-service" ? expired * 0.14 : 0;
+    state.combo = 0;
+  }
+  state.tasks = state.tasks.filter(function(task) { return task.life > 0; });
+  while (state.tasks.length < initialTaskCount(runtime)) {
+    state.tasks.push(createSemanticTasks(1)[0]);
+  }
+}
+
+function lifeDrainForRuntime(runtime) {
+  return {
+    "queue-service": 0.42,
+    "sandbox-builder": 0.28,
+    "quest-map": 0.34,
+    "timing-stage": 0.7,
+    "lane-traversal": 0.45
+  }[runtime] || (CONFIG.semanticSpec.flags.economy ? 0.55 : 0.8);
+}
+
+function updateActors() {
+  const runtime = runtimeId();
+  if ((runtime === "arena-action" || CONFIG.semanticSpec.flags.wavePressure) && state.tick % 95 === 0) {
+    state.wave += 1;
+    spawnActor(state.wave);
+  }
+  state.actors.forEach(function(actor) {
+    if (runtime === "queue-service") {
+      actor.patience -= 0.22 + state.stationPressure;
+      actor.y = canvas.height - 92 + Math.sin(state.tick * 0.02 + actor.x) * 7;
+      if (actor.patience <= 0) {
+        state.lives -= 1;
+        actor.hp = 0;
+      }
+      return;
+    }
+    actor.x += actor.vx;
+    actor.y += actor.vy + Math.sin(state.tick * 0.02 + actor.x) * 0.35;
+    if (!actor.hostile) {
+      if (actor.x < 30 || actor.x > canvas.width - 30) actor.vx *= -1;
+      if (actor.y < 70 || actor.y > canvas.height - 36) actor.vy *= -1;
+    }
+    if (actor.hostile && actor.x < -50) {
+      state.lives -= 1;
+      actor.hp = 0;
+    }
+    if (actor.hostile && distance(actor, state.focus) < actor.size + state.focus.size * 0.45) {
+      state.lives -= 1;
+      actor.hp = 0;
+      burst(state.focus.x, state.focus.y, CONFIG.danger, 10);
     }
   });
-  state.shots.forEach(shot => shot.life -= 1);
-  state.shots = state.shots.filter(shot => shot.life > 0);
+  state.actors = state.actors.filter(function(actor) { return actor.hp > 0 && actor.x > -80; });
+  while (runtime === "queue-service" && state.actors.length < 4) spawnActor(state.actors.length);
+}
+
+function updateProjectiles() {
+  state.projectiles.forEach(function(shot) {
+    shot.x += shot.vx;
+    shot.y += shot.vy;
+    shot.life -= 1;
+    state.actors.forEach(function(actor) {
+      if (actor.hostile && distance(shot, actor) < actor.size) {
+        actor.hp -= 1;
+        shot.life = 0;
+        state.score += 45;
+        state.resources += CONFIG.semanticSpec.flags.economy ? 8 : 0;
+        burst(actor.x, actor.y, CONFIG.secondary, 12);
+      }
+    });
+  });
+  state.projectiles = state.projectiles.filter(function(shot) {
+    return shot.life > 0 && shot.x > -40 && shot.x < canvas.width + 40 && shot.y > -40 && shot.y < canvas.height + 40;
+  });
+}
+
+function updateParticles() {
+  state.particles.forEach(function(particle) {
+    particle.x += particle.vx;
+    particle.y += particle.vy;
+    particle.vy += 0.02;
+    particle.life -= 0.025;
+  });
+  state.particles = state.particles.filter(function(particle) { return particle.life > 0; });
+}
+
+function checkWinLoss() {
+  const runtime = runtimeId();
+  if (CONFIG.semanticSpec.layout === "grid" && CONFIG.semanticSpec.flags.hiddenInfo) {
+    const safe = state.grid.flat().filter(function(tile) { return !tile.hazard; });
+    if (safe.length && safe.every(function(tile) { return tile.revealed; })) return finish(true);
+  }
+  if (CONFIG.semanticSpec.layout === "grid" && CONFIG.semanticSpec.flags.pairLogic) {
+    if (state.grid.flat().every(function(tile) { return tile.cleared; })) return finish(true);
+  }
+  if (runtime === "sandbox-builder" && state.buildLevel >= 6) return finish(true);
+  if (runtime === "quest-map" && state.progress >= 6) return finish(true);
+  if (runtime === "queue-service" && state.stationPressure >= 1.8) return finish(false);
+  if (state.score >= state.targetScore) return finish(true);
+  if (state.lives <= 0) return finish(false);
+}
+
+function finish(win) {
+  state.over = true;
+  state.win = !!win;
+  state.best = Math.max(state.best, state.score);
+  localStorage.setItem(CONFIG.storageKey, state.best);
+}
+
+function gridLayout() {
+  const rows = state.grid.length || 1;
+  const cols = state.grid[0] ? state.grid[0].length : 1;
+  const gap = 6;
+  const cell = Math.min(58, (canvas.width - 150 - gap * (cols - 1)) / cols, (canvas.height - 142 - gap * (rows - 1)) / rows);
+  const startX = (canvas.width - cols * cell - (cols - 1) * gap) / 2;
+  const startY = 88;
+  return { rows: rows, cols: cols, gap: gap, cell: cell, startX: startX, startY: startY };
+}
+
+function tileAtPointer() {
+  if (!state.grid.length) return null;
+  const layout = gridLayout();
+  const col = Math.floor((pointer.x - layout.startX) / (layout.cell + layout.gap));
+  const row = Math.floor((pointer.y - layout.startY) / (layout.cell + layout.gap));
+  if (row < 0 || row >= layout.rows || col < 0 || col >= layout.cols) return null;
+  const x = layout.startX + col * (layout.cell + layout.gap);
+  const y = layout.startY + row * (layout.cell + layout.gap);
+  if (pointer.x < x || pointer.x > x + layout.cell || pointer.y < y || pointer.y > y + layout.cell) return null;
+  return state.grid[row][col];
+}
+
+function handleGridAction(markOnly) {
+  const tile = tileAtPointer();
+  if (!tile || state.over) return;
+  if (CONFIG.semanticSpec.flags.hiddenInfo) {
+    if (markOnly) {
+      if (!tile.revealed) tile.marked = !tile.marked;
+      return;
+    }
+    if (tile.marked || tile.revealed) return;
+    tile.revealed = true;
+    if (tile.hazard) {
+      state.grid.flat().forEach(function(cell) { if (cell.hazard) cell.revealed = true; });
+      burst(pointer.x, pointer.y, CONFIG.danger, 22);
+      return finish(false);
+    }
+    state.score += tile.count ? 14 + tile.count * 4 : 22;
+    if (tile.count === 0) floodReveal(tile);
+    return;
+  }
+  if (CONFIG.semanticSpec.flags.pairLogic) {
+    if (tile.cleared) return;
+    if (!state.selected) {
+      state.selected = tile;
+      return;
+    }
+    if (state.selected === tile) {
+      state.selected = null;
+      return;
+    }
+    if (state.selected.value === tile.value) {
+      state.selected.cleared = true;
+      tile.cleared = true;
+      state.score += 80 + state.combo * 6;
+      state.combo += 1;
+      burst(pointer.x, pointer.y, CONFIG.secondary, 18);
+      state.selected = null;
+    } else {
+      state.combo = 0;
+      state.selected = tile;
+    }
+    return;
+  }
+  tile.cleared = !tile.cleared;
+  state.score += tile.cleared ? 24 : -8;
+}
+
+function floodReveal(tile) {
+  neighbors(tile).forEach(function(next) {
+    if (!next.revealed && !next.marked && !next.hazard) {
+      next.revealed = true;
+      state.score += 8;
+      if (next.count === 0) floodReveal(next);
+    }
+  });
+}
+
+function handleTaskAction() {
+  const runtime = runtimeId();
+  let hitIndex = -1;
+  for (let i = 0; i < state.tasks.length; i += 1) {
+    if (distance(pointer, state.tasks[i]) < state.tasks[i].size * 0.78) hitIndex = i;
+  }
+  if (hitIndex >= 0) {
+    const task = state.tasks.splice(hitIndex, 1)[0];
+    const timing = runtime === "timing-stage" ? Math.max(1, Math.round(10 - Math.abs(task.x - 155) / 14)) : CONFIG.semanticSpec.flags.timedBeat ? Math.max(1, Math.round(9 - Math.abs((task.x % 120) - 60) / 8)) : 1;
+    if (runtime === "lane-traversal" && Math.abs(task.y - state.focus.y) > 38) {
+      state.lives -= 1;
+      state.combo = 0;
+      burst(pointer.x, pointer.y, CONFIG.danger, 8);
+      return;
+    }
+    state.combo += 1;
+    state.score += task.value + state.combo * 6 + timing * 8 + (runtime === "sandbox-builder" ? state.buildLevel * 9 : 0);
+    state.resources += CONFIG.semanticSpec.flags.economy ? 10 : runtime === "sandbox-builder" ? 18 : 0;
+    if (runtime === "queue-service") {
+      state.stationPressure = Math.max(0, state.stationPressure - 0.16);
+      const customer = state.actors.find(function(actor) { return actor.hp > 0; });
+      if (customer) customer.patience = Math.min(460, customer.patience + 95);
+    }
+    if (runtime === "sandbox-builder") {
+      state.buildLevel += state.resources >= 70 ? 1 : 0;
+      state.resources = Math.max(0, state.resources - 45);
+    }
+    if (runtime === "quest-map") state.progress += 1;
+    burst(task.x, task.y, CONFIG.secondary, 16);
+    return;
+  }
+  if (runtime === "timing-stage") {
+    state.combo = 0;
+    state.lives -= 1;
+    burst(155, pointer.y, CONFIG.danger, 6);
+  } else if (CONFIG.semanticSpec.flags.physicsAim || CONFIG.semanticSpec.flags.wavePressure || runtime === "arena-action") {
+    fireVector(pointer.x - state.focus.x, pointer.y - state.focus.y);
+  } else {
+    state.combo = 0;
+    burst(pointer.x, pointer.y, CONFIG.danger, 6);
+  }
+}
+
+function fireVector(dx, dy) {
+  const length = Math.max(1, Math.hypot(dx, dy));
+  const speed = Math.min(12, Math.max(5, length * 0.045));
+  state.projectiles.push({
+    x: state.focus.x,
+    y: state.focus.y,
+    vx: dx / length * speed,
+    vy: dy / length * speed,
+    life: 80
+  });
 }
 
 function draw() {
@@ -740,123 +1532,299 @@ function draw() {
   ctx.fillStyle = CONFIG.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawPattern();
-  CONFIG.decoration.forEach(asset => drawShape(asset.shape, asset.x, asset.y, asset.size, CONFIG.secondary, asset.alpha, state.tick * 0.01));
-
-  if (CONFIG.category === "paddle-breaker") drawPaddleScene();
-  else if (CONFIG.category === "pong-duel") drawPongScene();
-  else if (CONFIG.category === "billiards-break") drawBilliardsScene();
-  else if (CONFIG.category === "snake-trail") drawSnakeScene();
-  else if (CONFIG.category === "pulse-defense") drawDefenseScene();
-  else {
-    state.items.forEach(item => drawShape(CONFIG.collectibleShape, item.x, item.y, item.size || 18, CONFIG.secondary, 0.95, state.tick * 0.04));
-    state.enemies.forEach(enemy => drawShape(CONFIG.enemyShape, enemy.x, enemy.y, enemy.size || 30, CONFIG.danger, 0.92, enemy.rot || state.tick * 0.02));
-    drawShape(CONFIG.playerShape, state.player.x, state.player.y, state.player.size, CONFIG.accent, 1, state.tick * 0.025);
-    if (CONFIG.category === "orbit-guard") {
-      drawShape("shield", canvas.width / 2, canvas.height / 2, 34, CONFIG.secondary, 0.9, 0);
-      ctx.strokeStyle = "rgba(255,255,255,.14)";
-      ctx.beginPath();
-      ctx.arc(canvas.width / 2, canvas.height / 2, 92, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-
-  if (state.over) centerText("GAME OVER", "Restart to roll the preview again");
+  drawSemanticBackdrop();
+  if (CONFIG.semanticSpec.layout === "grid") drawGridScene();
+  else drawOpenScene();
+  drawHud();
+  if (state.over) centerText(state.win ? "CLEARED" : "GAME OVER", state.win ? CONFIG.semanticSpec.winCondition : CONFIG.semanticSpec.failCondition);
 }
 
 function drawPattern() {
-  ctx.strokeStyle = "rgba(255,255,255,.09)";
+  const runtime = runtimeId();
+  ctx.strokeStyle = "rgba(255,255,255,.08)";
   ctx.lineWidth = 1;
-  if (CONFIG.pattern === "stars") {
-    for (let i = 0; i < 70; i += 1) {
-      const x = (i * 137 + state.tick * 0.22) % canvas.width;
-      const y = (i * 67) % canvas.height;
-      ctx.fillStyle = i % 3 ? "rgba(255,255,255,.16)" : CONFIG.accent;
-      ctx.fillRect(x, y, 2, 2);
-    }
-    return;
+  for (let x = -80; x < canvas.width + 80; x += 54) {
+    ctx.beginPath();
+    ctx.moveTo(x + (state.tick * 0.35) % 54, 0);
+    ctx.lineTo(x - 150 + (state.tick * 0.35) % 54, canvas.height);
+    ctx.stroke();
   }
-  if (CONFIG.pattern === "rings" || CONFIG.pattern === "bubbles") {
-    for (let i = 0; i < 10; i += 1) {
+  if (runtime === "timing-stage") {
+    for (let i = 0; i < 7; i += 1) {
+      ctx.fillStyle = i % 2 ? CONFIG.secondary : CONFIG.accent;
+      ctx.fillRect(90 + i * 118, canvas.height - 70 - Math.sin(state.tick * 0.06 + i) * 38, 48, 4 + Math.abs(Math.sin(state.tick * 0.04 + i)) * 80);
+    }
+    ctx.strokeStyle = CONFIG.accent;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(155, 74);
+    ctx.lineTo(155, canvas.height - 52);
+    ctx.stroke();
+  }
+}
+
+function drawSemanticBackdrop() {
+  const kit = CONFIG.visualSkillSet || {};
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  grad.addColorStop(0, "rgba(255,255,255,.04)");
+  grad.addColorStop(1, "rgba(0,0,0,.32)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  (kit.props || []).forEach(function(prop, index) {
+    drawProp(prop.kind, prop.x + Math.sin(state.tick * 0.01 + index) * 8, prop.y, prop.size, prop.alpha, index);
+  });
+}
+
+function drawGridScene() {
+  const layout = gridLayout();
+  const panelW = layout.cols * layout.cell + (layout.cols - 1) * layout.gap + 34;
+  const panelH = layout.rows * layout.cell + (layout.rows - 1) * layout.gap + 78;
+  const panelX = layout.startX - 17;
+  const panelY = layout.startY - 55;
+  ctx.fillStyle = "rgba(255,255,255,.055)";
+  ctx.strokeStyle = "rgba(255,255,255,.16)";
+  ctx.lineWidth = 1.5;
+  roundRect(panelX, panelY, panelW, panelH, 22);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(2,3,2,.62)";
+  roundRect(panelX + 13, panelY + 12, panelW - 26, 32, 10);
+  ctx.fill();
+  ctx.fillStyle = "#f2f8ef";
+  ctx.font = "800 15px system-ui";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(CONFIG.semanticSpec.primaryAction + " | " + CONFIG.semanticSpec.secondaryAction, panelX + 24, panelY + 29);
+  ctx.textAlign = "right";
+  ctx.fillStyle = CONFIG.secondary;
+  ctx.fillText(CONFIG.semanticSpec.layout + " rules", panelX + panelW - 24, panelY + 29);
+
+  const numberColors = ["", "#85d8ff", "#9df07a", "#ffd568", "#ff918e", "#caa6ff", "#70f0d5", "#ffb2dc", "#f2f8ef"];
+  state.grid.flat().forEach(function(tile) {
+    const x = layout.startX + tile.col * (layout.cell + layout.gap);
+    const y = layout.startY + tile.row * (layout.cell + layout.gap);
+    const selected = state.selected === tile;
+    if (tile.cleared) return;
+    ctx.save();
+    ctx.fillStyle = tile.revealed ? "rgba(242,248,239,.12)" : selected ? CONFIG.accent : "rgba(255,255,255,.08)";
+    ctx.strokeStyle = tile.marked ? CONFIG.secondary : selected ? CONFIG.secondary : "rgba(255,255,255,.18)";
+    ctx.lineWidth = tile.marked || selected ? 3 : 1.4;
+    roundRect(x, y, layout.cell, layout.cell, 9);
+    ctx.fill();
+    ctx.stroke();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    if (tile.marked && !tile.revealed) {
+      ctx.fillStyle = CONFIG.secondary;
+      ctx.font = "900 " + Math.floor(layout.cell * 0.42) + "px system-ui";
+      ctx.fillText("!", x + layout.cell / 2, y + layout.cell / 2 + 1);
+    } else if (tile.revealed && tile.hazard) {
+      drawShape("star", x + layout.cell / 2, y + layout.cell / 2, layout.cell * 0.55, CONFIG.danger, 1, state.tick * 0.04);
+    } else if (tile.revealed && CONFIG.semanticSpec.flags.hiddenInfo) {
+      ctx.fillStyle = numberColors[tile.count] || CONFIG.accent;
+      ctx.font = "900 " + Math.floor(layout.cell * 0.43) + "px system-ui";
+      ctx.fillText(tile.count ? String(tile.count) : "·", x + layout.cell / 2, y + layout.cell / 2 + 1);
+    } else if (CONFIG.semanticSpec.flags.pairLogic || tile.value) {
+      ctx.fillStyle = selected ? "#061005" : CONFIG.accent;
+      ctx.font = "900 " + Math.floor(layout.cell * 0.32) + "px system-ui";
+      ctx.fillText(tile.value || "?", x + layout.cell / 2, y + layout.cell / 2 + 1);
+    } else {
+      ctx.fillStyle = "rgba(242,248,239,.22)";
       ctx.beginPath();
-      ctx.arc((i * 111 + state.tick * 0.45) % canvas.width, 80 + (i * 47) % 380, 20 + (i % 4) * 12, 0, Math.PI * 2);
+      ctx.arc(x + layout.cell / 2, y + layout.cell / 2, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  });
+}
+
+function drawOpenScene() {
+  const runtime = runtimeId();
+  if (runtime === "lane-traversal") {
+    ctx.strokeStyle = "rgba(255,255,255,.16)";
+    for (let i = 0; i < 4; i += 1) {
+      const y = laneY(i);
+      ctx.fillStyle = i === state.laneIndex ? "rgba(201,255,47,.08)" : "rgba(255,255,255,.025)";
+      ctx.fillRect(34, y - 34, canvas.width - 68, 68);
+      ctx.beginPath();
+      ctx.moveTo(40, y);
+      ctx.lineTo(canvas.width - 40, y);
       ctx.stroke();
     }
-    return;
   }
-  for (let x = -80; x < canvas.width + 80; x += 58) {
-    ctx.beginPath();
-    ctx.moveTo(x + (state.tick * 0.4) % 58, 0);
-    ctx.lineTo(x - 180 + (state.tick * 0.4) % 58, canvas.height);
-    ctx.stroke();
+  if (runtime === "queue-service") {
+    ctx.fillStyle = "rgba(2,3,2,.45)";
+    roundRect(54, canvas.height - 138, canvas.width - 108, 78, 18);
+    ctx.fill();
+    for (let i = 0; i < 5; i += 1) {
+      const x = 92 + i * 168;
+      ctx.fillStyle = "rgba(255,255,255,.07)";
+      roundRect(x, canvas.height - 150, 96, 96, 16);
+      ctx.fill();
+      ctx.strokeStyle = CONFIG.secondary;
+      ctx.stroke();
+    }
   }
-}
-
-function drawPaddleScene() {
-  state.bricks.forEach((brick, index) => {
-    if (!brick.alive) return;
-    drawShape(index % 2 ? CONFIG.enemyShape : CONFIG.collectibleShape, brick.x + brick.w / 2, brick.y + brick.h / 2, 22, brick.shade ? CONFIG.accent : CONFIG.secondary, 0.94, index);
+  if (runtime === "sandbox-builder") {
+    for (let i = 0; i < 6; i += 1) {
+      const x = 118 + (i % 3) * 246;
+      const y = 104 + Math.floor(i / 3) * 168;
+      ctx.fillStyle = "rgba(255,255,255,.055)";
+      roundRect(x, y, 168, 116, 18);
+      ctx.fill();
+      ctx.strokeStyle = i < state.buildLevel ? CONFIG.accent : "rgba(255,255,255,.16)";
+      ctx.stroke();
+    }
+  }
+  if (runtime === "quest-map") {
+    ctx.strokeStyle = "rgba(117,244,255,.24)";
+    ctx.lineWidth = 3;
+    for (let i = 0; i < state.tasks.length - 1; i += 1) {
+      ctx.beginPath();
+      ctx.moveTo(state.tasks[i].x, state.tasks[i].y);
+      ctx.lineTo(state.tasks[i + 1].x, state.tasks[i + 1].y);
+      ctx.stroke();
+    }
+  }
+  state.tasks.forEach(drawTask);
+  state.actors.forEach(function(actor) {
+    drawShape(actor.hostile ? CONFIG.enemyShape : CONFIG.collectibleShape, actor.x, actor.y, actor.size, actor.hostile ? CONFIG.danger : CONFIG.secondary, 0.95, state.tick * 0.025);
+    if (runtime === "queue-service") {
+      ctx.fillStyle = CONFIG.danger;
+      ctx.fillRect(actor.x - 24, actor.y + 28, 48 * Math.max(0, actor.patience / 460), 4);
+    }
   });
-  drawShape("shield", state.paddle.x + state.paddle.w / 2, state.paddle.y, 50, CONFIG.accent, 1, 0);
-  drawShape(CONFIG.collectibleShape, state.ball.x, state.ball.y, state.ball.r * 2, CONFIG.secondary, 1, state.tick * 0.08);
-}
-
-function drawPongScene() {
-  ctx.strokeStyle = "rgba(255,255,255,.16)";
-  ctx.setLineDash([12, 12]);
-  ctx.beginPath(); ctx.moveTo(canvas.width / 2, 45); ctx.lineTo(canvas.width / 2, canvas.height - 45); ctx.stroke();
-  ctx.setLineDash([]);
-  drawShape("shield", state.player.x, state.player.y, 78, CONFIG.accent, 1, Math.PI / 2);
-  drawShape("shield", state.paddle.x, state.paddle.y, 78, CONFIG.secondary, 1, Math.PI / 2);
-  drawShape(CONFIG.collectibleShape, state.ball.x, state.ball.y, state.ball.r * 2.2, CONFIG.danger, 1, state.tick * 0.08);
-}
-
-function drawBilliardsScene() {
-  ctx.fillStyle = "rgba(255,255,255,.05)";
-  roundRect(46, 46, canvas.width - 92, canvas.height - 92, 28);
-  ctx.fill();
-  [[58,64],[canvas.width/2,58],[canvas.width-58,64],[58,canvas.height-58],[canvas.width/2,canvas.height-54],[canvas.width-58,canvas.height-58]].forEach(([x,y]) => {
-    ctx.fillStyle = "rgba(0,0,0,.72)";
-    ctx.beginPath(); ctx.arc(x, y, 24, 0, Math.PI * 2); ctx.fill();
+  state.projectiles.forEach(function(shot) {
+    drawShape("diamond", shot.x, shot.y, 15, CONFIG.accent, 1, state.tick * 0.08);
   });
-  state.items.filter(item => !item.pocketed).forEach((item, index) => drawShape(index % 2 ? "diamond" : "circle", item.x, item.y, item.size * 1.5, item.color, 1, state.tick * 0.01 + index));
-  drawShape(CONFIG.playerShape, state.ball.x, state.ball.y, state.ball.r * 2.4, CONFIG.accent, 1, 0);
-  const still = Math.hypot(state.ball.vx, state.ball.vy) < 0.08 && state.items.every(item => item.pocketed || Math.hypot(item.vx, item.vy) < 0.08);
-  if (still && pointer.active) {
+  drawShape(CONFIG.playerShape, state.focus.x, state.focus.y, state.focus.size, CONFIG.accent, 1, state.tick * 0.025);
+  if (pointer.dragging) {
     ctx.strokeStyle = CONFIG.secondary;
     ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(state.ball.x, state.ball.y); ctx.lineTo(pointer.x, pointer.y); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(state.focus.x, state.focus.y);
+    ctx.lineTo(pointer.x, pointer.y);
+    ctx.stroke();
   }
 }
 
-function drawSnakeScene() {
-  state.trail.forEach((part, index) => drawShape(index === 0 ? CONFIG.playerShape : "circle", part.x, part.y, Math.max(12, 30 - index * 0.7), index === 0 ? CONFIG.accent : CONFIG.secondary, Math.max(0.35, 1 - index * 0.035), index));
-  state.items.forEach(item => drawShape(CONFIG.collectibleShape, item.x, item.y, 22, CONFIG.danger, 1, state.tick * 0.05));
+function drawTask(task) {
+  const runtime = runtimeId();
+  const heat = Math.max(0.12, task.life / 360);
+  ctx.save();
+  ctx.translate(task.x, task.y);
+  ctx.rotate(runtime === "sandbox-builder" ? 0 : Math.sin(task.phase) * 0.05);
+  ctx.shadowColor = heat < 0.28 ? CONFIG.danger : CONFIG.accent;
+  ctx.shadowBlur = heat < 0.28 ? 24 : 14;
+  ctx.fillStyle = runtime === "quest-map" ? "rgba(117,244,255,.14)" : heat < 0.28 ? "rgba(255,79,123,.88)" : "rgba(255,255,255,.1)";
+  ctx.strokeStyle = heat < 0.28 ? CONFIG.danger : CONFIG.secondary;
+  ctx.lineWidth = 2;
+  if (runtime === "timing-stage") {
+    ctx.beginPath();
+    ctx.arc(0, 0, task.size * 0.62, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    roundRect(-task.size, -task.size * 0.66, task.size * 2, task.size * 1.32, 13);
+    ctx.fill();
+    ctx.stroke();
+  }
+  drawShape(CONFIG.collectibleShape, -task.size * 0.42, 0, task.size * 0.55, CONFIG.secondary, 0.95, task.phase);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#f2f8ef";
+  ctx.font = "900 13px system-ui";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(task.label.slice(0, 12), task.size * 0.22, 5);
+  ctx.fillStyle = CONFIG.accent;
+  ctx.fillRect(-task.size, task.size * 0.76, task.size * 2 * heat, 4);
+  if (runtime === "sandbox-builder") {
+    ctx.fillStyle = CONFIG.secondary;
+    ctx.fillText("L" + task.level, -task.size * 0.45, -task.size * 0.42);
+  }
+  ctx.restore();
 }
 
-function drawDefenseScene() {
-  ctx.strokeStyle = CONFIG.accent;
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(0, canvas.height * 0.58);
-  ctx.bezierCurveTo(230, 200, 420, 430, 630, 290);
-  ctx.bezierCurveTo(760, 210, 820, 380, canvas.width, 330);
-  ctx.stroke();
-  state.towers.forEach(tower => drawShape("shield", tower.x, tower.y, 36, CONFIG.accent, 1, state.tick * 0.03));
-  state.enemies.forEach(enemy => {
-    drawShape(CONFIG.enemyShape, enemy.x, enemy.y, enemy.size, CONFIG.danger, 0.95, state.tick * 0.03);
-    ctx.fillStyle = CONFIG.accent;
-    ctx.fillRect(enemy.x - 16, enemy.y - 24, 32 * Math.max(0, enemy.hp / enemy.max), 4);
-  });
-  ctx.strokeStyle = "#fff";
-  state.shots.forEach(shot => {
-    ctx.beginPath();
-    ctx.moveTo(shot.x, shot.y);
-    ctx.lineTo(shot.target.x, shot.target.y);
-    ctx.stroke();
-  });
+function drawHud() {
+  const runtime = runtimeId();
+  ctx.fillStyle = "rgba(2,3,2,.66)";
+  roundRect(16, 12, canvas.width - 32, 38, 12);
+  ctx.fill();
   ctx.fillStyle = "#f2f8ef";
-  ctx.font = "800 18px system-ui";
-  ctx.fillText("Cash " + state.cash + "   Lives " + state.lives, 22, 34);
+  ctx.font = "800 16px system-ui";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  const extra = runtime === "queue-service"
+    ? "   Pressure " + Math.round(state.stationPressure * 100)
+    : runtime === "sandbox-builder"
+      ? "   Build L" + state.buildLevel + "   Res " + Math.round(state.resources)
+      : runtime === "quest-map"
+        ? "   Quest " + state.progress + "/6"
+        : runtime === "lane-traversal"
+          ? "   Lane " + (state.laneIndex + 1)
+          : "";
+  ctx.fillText("Lives " + state.lives + "   Combo " + state.combo + "   Goal " + state.targetScore + extra, 26, 31);
+  ctx.fillStyle = CONFIG.secondary;
+  ctx.textAlign = "right";
+  ctx.fillText(CONFIG.semanticSpec.genreLabel.slice(0, 46), canvas.width - 26, 31);
+  ctx.textAlign = "left";
+}
+
+function drawProp(kind, x, y, size, alpha, index) {
+  ctx.save();
+  ctx.globalAlpha = alpha || 0.18;
+  ctx.translate(x, y);
+  ctx.rotate(Math.sin(state.tick * 0.008 + index) * 0.12);
+  drawShape(index % 2 ? "diamond" : "circle", 0, 0, size, index % 2 ? CONFIG.secondary : CONFIG.accent, 1, index);
+  ctx.restore();
+}
+
+function drawShape(shape, x, y, size, color, alpha, rotation) {
+  ctx.save();
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  ctx.translate(x, y);
+  ctx.rotate(rotation || 0);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = "rgba(242,248,239,.65)";
+  ctx.lineWidth = Math.max(1.5, size * 0.06);
+  const r = size / 2;
+  if (shape === "diamond" || shape === "data-chip" || shape === "gem-cluster") {
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r, 0);
+    ctx.lineTo(0, r);
+    ctx.lineTo(-r, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (shape === "star" || shape === "star-core" || shape === "trophy-star") {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i += 1) {
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      const rr = i % 2 ? r * 0.42 : r;
+      const px = Math.cos(a) * rr;
+      const py = Math.sin(a) * rr;
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (shape === "shield" || shape === "rocket" || shape === "athlete-token") {
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.quadraticCurveTo(r * 0.85, -r * 0.25, r * 0.48, r * 0.76);
+    ctx.lineTo(0, r);
+    ctx.lineTo(-r * 0.48, r * 0.76);
+    ctx.quadraticCurveTo(-r * 0.85, -r * 0.25, 0, -r);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function roundRect(x, y, w, h, r) {
@@ -870,246 +1838,93 @@ function roundRect(x, y, w, h, r) {
   ctx.quadraticCurveTo(x, y + h, x, y + h - r);
   ctx.lineTo(x, y + r);
   ctx.quadraticCurveTo(x, y, x + r, y);
-}
-
-function drawSprite(shape, x, y, size, color, alpha = 1, rotation = 0) {
-  const r = size / 2;
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(x, y);
-  ctx.rotate(rotation);
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 12;
-  ctx.lineWidth = Math.max(2, size * 0.07);
-  ctx.fillStyle = color;
-  ctx.strokeStyle = color;
-  const ink = "rgba(2,3,2,.78)";
-
-  if (shape === "rocket") {
-    ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r * .55, -r * .55); ctx.lineTo(-r * .25, 0); ctx.lineTo(-r * .55, r * .55); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(r * .12, 0, r * .18, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = CONFIG.danger; ctx.beginPath(); ctx.moveTo(-r * .62, 0); ctx.lineTo(-r * 1.08, -r * .24); ctx.lineTo(-r * 1.08, r * .24); ctx.closePath(); ctx.fill();
-    ctx.restore(); return true;
-  }
-  if (shape === "asteroid") {
-    ctx.beginPath();
-    for (let i = 0; i < 9; i += 1) { const a = i / 9 * Math.PI * 2; const rr = r * (.72 + (i % 3) * .16); const px = Math.cos(a) * rr, py = Math.sin(a) * rr; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
-    ctx.closePath(); ctx.fill(); ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(-r*.15, -r*.08, r*.14, 0, Math.PI*2); ctx.arc(r*.22, r*.2, r*.1, 0, Math.PI*2); ctx.fill();
-    ctx.restore(); return true;
-  }
-  if (shape === "star-core" || shape === "ticket-star" || shape === "tiny-star") {
-    ctx.beginPath();
-    for (let i = 0; i < 10; i += 1) { const a = -Math.PI/2 + i * Math.PI / 5; const rr = i % 2 ? r * .42 : r; const px = Math.cos(a) * rr, py = Math.sin(a) * rr; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
-    ctx.closePath(); ctx.fill(); ctx.restore(); return true;
-  }
-  if (shape === "submarine") {
-    roundRect(-r, -r*.42, size, r*.84, r*.35); ctx.fill();
-    ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(r*.28, 0, r*.18, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = color; ctx.beginPath(); ctx.arc(-r*.2, -r*.52, r*.28, Math.PI, 0); ctx.stroke();
-    ctx.restore(); return true;
-  }
-  if (shape === "jelly") {
-    ctx.beginPath(); ctx.arc(0, -r*.1, r*.72, Math.PI, 0); ctx.lineTo(r*.65, r*.2); ctx.quadraticCurveTo(0, r*.55, -r*.65, r*.2); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = color; for (let i=-1;i<=1;i+=1){ctx.beginPath();ctx.moveTo(i*r*.32,r*.28);ctx.quadraticCurveTo(i*r*.42,r*.65,i*r*.15,r*.9);ctx.stroke();}
-    ctx.restore(); return true;
-  }
-  if (shape === "pearl" || shape === "bubble") {
-    const grad = ctx.createRadialGradient(-r*.25, -r*.25, r*.1, 0, 0, r); grad.addColorStop(0, "#fff"); grad.addColorStop(.35, color); grad.addColorStop(1, "rgba(255,255,255,.08)"); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
-    ctx.restore(); return true;
-  }
-  if (shape === "hover-bug" || shape === "virus-eye" || shape === "slime-eye") {
-    ctx.beginPath(); ctx.ellipse(0, 0, r*.85, r*.62, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = "#f2f8ef"; ctx.beginPath(); ctx.arc(r*.18, -r*.05, r*.22, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(r*.22, -r*.05, r*.1, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = color; for (let i=-1;i<=1;i+=2){ctx.beginPath();ctx.moveTo(-r*.15,i*r*.55);ctx.lineTo(-r*.48,i*r*.9);ctx.stroke();}
-    ctx.restore(); return true;
-  }
-  if (shape === "data-chip") {
-    roundRect(-r*.75,-r*.55,r*1.5,r*1.1,r*.12); ctx.fill(); ctx.strokeStyle = ink; for(let i=-2;i<=2;i+=1){ctx.beginPath();ctx.moveTo(i*r*.22,-r*.55);ctx.lineTo(i*r*.22,r*.55);ctx.stroke();}
-    ctx.restore(); return true;
-  }
-  if (shape === "cue-ball" || shape === "stripe-ball" || shape === "eight-ball") {
-    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
-    if (shape === "stripe-ball") { ctx.fillStyle = "rgba(255,255,255,.78)"; ctx.fillRect(-r, -r*.22, size, r*.44); }
-    if (shape === "eight-ball") { ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(0,0,r*.42,0,Math.PI*2); ctx.fill(); ctx.fillStyle="#fff"; ctx.font = Math.floor(r*.55)+"px system-ui"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("8",0,0); }
-    ctx.restore(); return true;
-  }
-  if (shape === "kite") {
-    ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r*.72,0); ctx.lineTo(0,r); ctx.lineTo(-r*.52,0); ctx.closePath(); ctx.fill(); ctx.strokeStyle=CONFIG.secondary; ctx.beginPath(); ctx.moveTo(0,r); ctx.quadraticCurveTo(-r*.2,r*1.35,r*.24,r*1.7); ctx.stroke();
-    ctx.restore(); return true;
-  }
-  if (shape === "storm-cloud") {
-    ctx.beginPath(); ctx.arc(-r*.38,0,r*.42,0,Math.PI*2); ctx.arc(0,-r*.18,r*.55,0,Math.PI*2); ctx.arc(r*.42,0,r*.45,0,Math.PI*2); ctx.fill(); ctx.fillRect(-r*.72,0,r*1.44,r*.36);
-    ctx.restore(); return true;
-  }
-  if (shape === "tiny-knight") {
-    ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r*.62,-r*.15); ctx.lineTo(r*.32,r*.78); ctx.lineTo(-r*.32,r*.78); ctx.lineTo(-r*.62,-r*.15); ctx.closePath(); ctx.fill(); ctx.fillStyle=ink; ctx.fillRect(-r*.22,-r*.2,r*.44,r*.12);
-    ctx.restore(); return true;
-  }
-  if (["satellite","spark","coral","wave","circuit-node","scanline","pocket","chalk","rail-light","flag","pinwheel","rune","torch","crack"].includes(shape)) {
-    ctx.globalAlpha *= .75;
-    if (shape === "spark" || shape === "pinwheel") { for(let i=0;i<4;i+=1){ctx.rotate(Math.PI/4);ctx.fillRect(-r*.08,-r,r*.16,r*2);} }
-    else if (shape === "flag") { ctx.fillRect(-r*.08,-r,r*.16,r*1.8); ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r*.8,-r*.72); ctx.lineTo(0,-r*.42); ctx.closePath(); ctx.fill(); }
-    else if (shape === "crack" || shape === "wave") { ctx.beginPath(); ctx.moveTo(-r,0); ctx.quadraticCurveTo(-r*.4,-r*.35,0,0); ctx.quadraticCurveTo(r*.4,r*.35,r,0); ctx.stroke(); }
-    else { ctx.strokeRect(-r*.55,-r*.55,r*1.1,r*1.1); ctx.beginPath(); ctx.arc(0,0,r*.22,0,Math.PI*2); ctx.fill(); }
-    ctx.restore(); return true;
-  }
-  ctx.restore();
-  return false;
-}
-
-function drawShape(shape, x, y, size, color, alpha = 1, rotation = 0) {
-  if (drawSprite(shape, x, y, size, color, alpha, rotation)) return;
-
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(x, y);
-  ctx.rotate(rotation);
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 12;
-  ctx.fillStyle = color;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(2, size * 0.08);
-  const r = size / 2;
-  if (shape === "circle" || shape === "diamond") {
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (shape === "triangle" || shape === "ship") {
-    ctx.beginPath();
-    ctx.moveTo(r, 0);
-    ctx.lineTo(-r * 0.75, -r * 0.75);
-    ctx.lineTo(-r * 0.45, 0);
-    ctx.lineTo(-r * 0.75, r * 0.75);
-    ctx.closePath();
-    ctx.fill();
-  } else if (shape === "bug") {
-    ctx.fillRect(-r * 0.6, -r * 0.6, r * 1.2, r * 1.2);
-    ctx.fillRect(-r, -r * 0.2, r * 0.42, r * 0.42);
-    ctx.fillRect(r * 0.58, -r * 0.2, r * 0.42, r * 0.42);
-  } else if (shape === "shield") {
-    ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r * 0.8, -r * 0.25);
-    ctx.lineTo(r * 0.55, r * 0.85);
-    ctx.lineTo(0, r);
-    ctx.lineTo(-r * 0.55, r * 0.85);
-    ctx.lineTo(-r * 0.8, -r * 0.25);
-    ctx.closePath();
-    ctx.fill();
-  } else if (shape === "comet") {
-    ctx.beginPath();
-    ctx.arc(r * 0.25, 0, r * 0.55, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha *= 0.55;
-    ctx.beginPath();
-    ctx.moveTo(-r * 1.4, 0);
-    ctx.lineTo(-r * 0.2, -r * 0.45);
-    ctx.lineTo(-r * 0.2, r * 0.45);
-    ctx.closePath();
-    ctx.fill();
-  } else {
-    ctx.fillRect(-r, -r, size, size);
-  }
-  ctx.restore();
-}
-
-function movePlayer(speed) {
-  const p = state.player;
-  if (pointer.active) {
-    p.x += (pointer.x - p.x) * 0.18;
-    p.y += (pointer.y - p.y) * 0.18;
-  }
-  if (keys.has("ArrowLeft") || keys.has("KeyA")) p.x -= speed;
-  if (keys.has("ArrowRight") || keys.has("KeyD")) p.x += speed;
-  if (keys.has("ArrowUp") || keys.has("KeyW")) p.y -= speed;
-  if (keys.has("ArrowDown") || keys.has("KeyS")) p.y += speed;
-  p.x = Math.max(24, Math.min(canvas.width - 24, p.x));
-  p.y = Math.max(54, Math.min(canvas.height - 28, p.y));
-}
-
-function hitCircle(a, b, radius) {
-  return Math.hypot(a.x - b.x, a.y - b.y) < radius + (a.size || 28) * 0.45;
-}
-
-function finish() {
-  state.over = true;
-  state.best = Math.max(state.best, state.score);
-  localStorage.setItem(CONFIG.storageKey, state.best);
+  ctx.closePath();
 }
 
 function centerText(title, sub) {
-  ctx.fillStyle = "rgba(2,3,2,.68)";
+  ctx.fillStyle = "rgba(2,3,2,.7)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.textAlign = "center";
   ctx.fillStyle = CONFIG.accent;
   ctx.font = "900 54px system-ui";
-  ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 14);
+  ctx.textAlign = "center";
+  ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 16);
   ctx.fillStyle = "#f2f8ef";
-  ctx.font = "700 20px system-ui";
-  ctx.fillText(sub, canvas.width / 2, canvas.height / 2 + 26);
+  ctx.font = "700 18px system-ui";
+  ctx.fillText(sub.slice(0, 86), canvas.width / 2, canvas.height / 2 + 24);
   ctx.textAlign = "left";
 }
 
-canvas.addEventListener("pointerup", event => {
-  if (CONFIG.category === "billiards-break" && pointer.active) {
-    const moving = Math.hypot(state.ball.vx, state.ball.vy) > 0.08 || state.items.some(item => !item.pocketed && Math.hypot(item.vx, item.vy) > 0.08);
-    if (!moving) {
-      const dx = state.ball.x - pointer.x;
-      const dy = state.ball.y - pointer.y;
-      const power = Math.min(11, Math.hypot(dx, dy) * 0.045);
-      state.ball.vx = dx * 0.045 * power;
-      state.ball.vy = dy * 0.045 * power;
+function burst(x, y, color, count) {
+  for (let i = 0; i < count; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.2 + Math.random() * 3;
+    state.particles.push({ x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 0.7 + Math.random() * 0.3, color: color });
+  }
+}
+
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+canvas.addEventListener("pointerdown", function(event) {
+  pointer.active = true;
+  pointer.dragging = CONFIG.semanticSpec.flags.physicsAim;
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = (event.clientX - rect.left) * canvas.width / rect.width;
+  pointer.y = (event.clientY - rect.top) * canvas.height / rect.height;
+  pointer.downX = pointer.x;
+  pointer.downY = pointer.y;
+  if (CONFIG.semanticSpec.layout === "grid") {
+    if (event.button === 2) handleGridAction(true);
+    else {
+      clearTimeout(longPressTimer);
+      pointer.marked = false;
+      longPressTimer = setTimeout(function() {
+        pointer.marked = true;
+        handleGridAction(true);
+      }, 470);
     }
   }
 });
 
-canvas.addEventListener("pointerdown", event => {
-  pointer.active = true;
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = (event.clientX - rect.left) * canvas.width / rect.width;
-  pointer.y = (event.clientY - rect.top) * canvas.height / rect.height;
-  if (CONFIG.category === "target-clicker") {
-    state.items = state.items.filter(item => {
-      if (Math.hypot(item.x - pointer.x, item.y - pointer.y) < item.size + 10) {
-        state.score += 35 + Math.round(item.life / 5);
-        return false;
-      }
-      return true;
-    });
-  }
-  if (CONFIG.category === "pulse-defense" && !state.over && state.cash >= 30 && !state.towers.some(tower => Math.hypot(tower.x - pointer.x, tower.y - pointer.y) < 42)) {
-    state.cash -= 30;
-    state.towers.push({ x: pointer.x, y: pointer.y, cooldown: 0 });
-  }
-  if (CONFIG.category === "orbit-guard") state.player.vx = state.player.vx === 0.045 ? -0.045 : 0.045;
-  if (CONFIG.category === "lane-runner") state.player.lane = Math.max(0, Math.min(2, Math.floor(pointer.y / (canvas.height / 3))));
-  if (CONFIG.category === "sky-jumper" && state.player.jumps < 2) {
-    state.player.vy = -12;
-    state.player.jumps += 1;
-  }
-});
-
-canvas.addEventListener("pointermove", event => {
+canvas.addEventListener("pointermove", function(event) {
   const rect = canvas.getBoundingClientRect();
   pointer.x = (event.clientX - rect.left) * canvas.width / rect.width;
   pointer.y = (event.clientY - rect.top) * canvas.height / rect.height;
 });
-canvas.addEventListener("pointerleave", () => { pointer.active = false; });
 
-window.addEventListener("keydown", event => {
+canvas.addEventListener("pointerup", function(event) {
+  clearTimeout(longPressTimer);
+  const wasMarked = pointer.marked;
+  pointer.marked = false;
+  if (CONFIG.semanticSpec.layout === "grid") {
+    if (!wasMarked && event.button !== 2) handleGridAction(false);
+  } else if (pointer.dragging && CONFIG.semanticSpec.flags.physicsAim) {
+    fireVector(pointer.x - state.focus.x, pointer.y - state.focus.y);
+  } else {
+    handleTaskAction();
+  }
+  pointer.dragging = false;
+});
+
+canvas.addEventListener("contextmenu", function(event) {
+  if (CONFIG.semanticSpec.layout === "grid") event.preventDefault();
+});
+
+canvas.addEventListener("pointerleave", function() {
+  clearTimeout(longPressTimer);
+  pointer.active = false;
+  pointer.dragging = false;
+});
+
+window.addEventListener("keydown", function(event) {
   keys.add(event.code);
-  if (CONFIG.category === "lane-runner") {
-    if (event.code === "ArrowUp" || event.code === "KeyW") state.player.lane = Math.max(0, state.player.lane - 1);
-    if (event.code === "ArrowDown" || event.code === "KeyS") state.player.lane = Math.min(2, state.player.lane + 1);
-  }
-  if (CONFIG.category === "orbit-guard" && event.code === "Space") state.player.vx = state.player.vx === 0.045 ? -0.045 : 0.045;
-  if (CONFIG.category === "sky-jumper" && (event.code === "Space" || event.code === "ArrowUp") && state.player.jumps < 2) {
+  if (event.code === "Space") {
     event.preventDefault();
-    state.player.vy = -12;
-    state.player.jumps += 1;
+    handleTaskAction();
   }
 });
-window.addEventListener("keyup", event => keys.delete(event.code));
+window.addEventListener("keyup", function(event) { keys.delete(event.code); });
 restartButton.addEventListener("click", reset);
 
 reset();
@@ -1117,6 +1932,9 @@ loop();
 `;
 }
 
+function buildScript(game) {
+  return buildSemanticScript(game);
+}
 function randomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
 }

@@ -2,6 +2,7 @@ const canvas = document.querySelector("#gameCanvas");
 const ctx = canvas.getContext("2d");
 const resetPreviewButton = document.querySelector("#resetPreviewButton");
 const gamePreview = document.querySelector("#gamePreview");
+const previewLoading = document.querySelector("#previewLoading");
 const agentLog = document.querySelector("#agentLog");
 const stageLabel = document.querySelector("#stageLabel");
 const stageTitle = document.querySelector("#stageTitle");
@@ -12,11 +13,12 @@ const categoryValue = document.querySelector("#categoryValue");
 const controlsValue = document.querySelector("#controlsValue");
 const zipDownload = document.querySelector("#zipDownload");
 const previewButtons = document.querySelectorAll("[data-category]");
-const customGameButton = document.querySelector("#customGameButton");
 const customPromptPanel = document.querySelector("#customPromptPanel");
 const customGamePrompt = document.querySelector("#customGamePrompt");
 const publishCustomButton = document.querySelector("#publishCustomButton");
 const publishedLink = document.querySelector("#publishedLink");
+const GENERATION_MIN_MS = 14500;
+const PUBLISH_MIN_MS = 17500;
 
 const state = {
   playerY: 0,
@@ -44,6 +46,27 @@ const setLog = (message) => {
   agentLog.textContent = message;
 };
 
+const withCacheBuster = (url) => {
+  const separator = String(url).includes("?") ? "&" : "?";
+  return `${url}${separator}t=${Date.now()}`;
+};
+
+const delay = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const waitForMinimumDuration = async (startedAt, minimumMs) => {
+  const remaining = minimumMs - (performance.now() - startedAt);
+  if (remaining > 0) await delay(remaining);
+};
+
+const setPreviewLoading = (visible, label = "Generating playable build", detail = "semantic parse -> rule synthesis -> iframe warmup") => {
+  if (!previewLoading) return;
+  previewLoading.hidden = !visible;
+  const title = previewLoading.querySelector("strong");
+  const subtitle = previewLoading.querySelector("small");
+  if (title) title.textContent = label;
+  if (subtitle) subtitle.textContent = detail;
+};
+
 const setStatus = (label, busy = false) => {
   statusText.textContent = label;
   statusPill.classList.toggle("busy", busy);
@@ -52,6 +75,12 @@ const setStatus = (label, busy = false) => {
 const cleanTraceText = (value) => String(value || "").replace(/\s+/g, " ").trim();
 
 const traceLine = (speaker, text, stateName = "") => ({ speaker, text, stateName });
+
+const idleTrace = () => [
+  traceLine("Runtime", "idle -> route=semantic-prompt -> contract=index.html + styles.css + script.js -> preview iframe armed.", "active"),
+  traceLine("Studio", "Creative, design, systems, level, UX, and QA passes will convert the prompt into a runtime blueprint before code generation."),
+  traceLine("Packager", "After synthesis, the agent writes the three-file HTML package, extracts the preview iframe, and publishes the generated page.")
+];
 
 const setAgentTrace = (lines, activeIndex = lines.length - 1) => {
   agentDialogue.replaceChildren();
@@ -106,15 +135,22 @@ const normalizeTrace = (preview, fallbackPrompt = "") => {
 
   return [
     traceLine("User", fallbackPrompt ? cleanTraceText(fallbackPrompt) : "Random preview request"),
-    traceLine("Agent", `Selected ${labelFor(preview.category)} and built ${preview.title}.`, "done")
+    traceLine("Agent", `Accepted open prompt mode and built ${preview.title}. Runtime scaffold stays internal.`, "done")
   ];
 };
 
 const buildPendingTrace = (prompt, mode) => [
   traceLine("User", prompt ? cleanTraceText(prompt) : "Random preview request"),
-  traceLine("Agent", mode === "publish" ? "Parsing prompt into game rules and visual direction." : "Picking a fresh playable 2D pattern."),
-  traceLine("Agent", "Choosing canvas sprites, color theme, controls, and scoring loop."),
-  traceLine("Agent", mode === "publish" ? "Packing files and publishing to StoryClaw /static/games/." : "Packing index.html, styles.css, and script.js for preview.")
+  traceLine("Creative Director", "Extracting player fantasy, design pillars, anti-pillars, and the emotional target from the prompt."),
+  traceLine("Game Designer", "Mapping micro-loop, meso-loop, macro-loop, primary action, secondary action, and tuning knobs."),
+  traceLine("Systems Designer", "Defining entities, resources, failure pressure, edge cases, and how systems interact."),
+  traceLine("Runtime Planner", "Selecting a concrete runtime blueprint: board, timing stage, service queue, action arena, lane traversal, builder, map, or open field."),
+  traceLine("Mechanic Compiler", "Binding the selected blueprint to keyboard/touch input, task state, hazards, resources, restart flow, and persistence."),
+  traceLine("Visual Director", "Selecting an image-generation-style visual skill set: stage backdrop, material language, sprite props, task-card frame, and particle vocabulary."),
+  traceLine("Sprite Painter", "Procedurally drawing layered canvas sprites, prompt-specific props, progress rings, icon cards, HUD panels, and hit feedback particles."),
+  traceLine("QA Lead", "Checking first-input response, visible goal pressure, readable feedback, reachable win/fail states, and prompt fit."),
+  traceLine("File Writer", "Rendering index.html, styles.css, and script.js as separate files for the preview contract."),
+  traceLine("Packager", mode === "publish" ? "Creating zip, extracting preview, and publishing to StoryClaw /static/games/." : "Creating zip and extracting preview iframe source.")
 ];
 
 const resetGame = () => {
@@ -313,15 +349,17 @@ const setButtonsDisabled = (disabled) => {
   previewButtons.forEach((button) => {
     button.disabled = disabled;
   });
+  publishCustomButton.disabled = disabled;
 };
 
 const showDemo = () => {
+  setPreviewLoading(false);
   gamePreview.hidden = true;
   gamePreview.removeAttribute("src");
   canvas.hidden = false;
   stageLabel.textContent = "Agent preview";
   stageTitle.textContent = "Neon Dash";
-  categoryValue.textContent = "Demo";
+  categoryValue.textContent = "Open";
   controlsValue.textContent = "Space / tap to double jump.";
   zipDownload.href = "#";
   zipDownload.classList.add("disabled");
@@ -330,19 +368,20 @@ const showDemo = () => {
   publishedLink.classList.add("disabled");
   publishedLink.setAttribute("aria-disabled", "true");
   setStatus("Agent ready");
-  setAgentTrace([traceLine("Agent", "等待你的 prompt 或随机生成指令。", "active")], 0);
+  setAgentTrace(idleTrace(), 0);
   setLog("Demo reset. 输入 prompt 后，生成过程会显示在左侧标题区域。");
   resetGame();
 };
 
 const renderGeneratedPreview = (preview, sourcePrompt = "") => {
   stopAgentTraceAnimation();
+  setPreviewLoading(false);
   canvas.hidden = true;
   gamePreview.hidden = false;
-  gamePreview.src = `${preview.previewUrl}?t=${Date.now()}`;
+  gamePreview.src = withCacheBuster(preview.previewUrl);
   stageLabel.textContent = "Generated by preview agent";
   stageTitle.textContent = preview.title;
-  categoryValue.textContent = labelFor(preview.category);
+  categoryValue.textContent = displayModeFor(preview);
   controlsValue.textContent = preview.controls;
   zipDownload.href = preview.zipUrl;
   zipDownload.classList.remove("disabled");
@@ -361,8 +400,10 @@ const generatePreview = async (category) => {
   }
 
   state.request = new AbortController();
+  const startedAt = performance.now();
   setButtonsDisabled(true);
   setStatus("Generating", true);
+  setPreviewLoading(true, "Compiling open game preview", "Sampling mechanics · writing 3 files · iframe warmup");
   animateAgentTrace(buildPendingTrace("", "preview"));
   setLog("后端正在生成三文件 zip，并解压到预览目录...");
 
@@ -378,10 +419,13 @@ const generatePreview = async (category) => {
       throw new Error(`Preview generation failed: ${response.status}`);
     }
 
-    renderGeneratedPreview(await response.json());
+    const preview = await response.json();
+    await waitForMinimumDuration(startedAt, GENERATION_MIN_MS);
+    renderGeneratedPreview(preview);
   } catch (error) {
     if (error.name !== "AbortError") {
       stopAgentTraceAnimation();
+      setPreviewLoading(false);
       setStatus("Error");
       setAgentTrace([traceLine("Agent", error.message, "error")], 0);
       setLog(error.message);
@@ -392,33 +436,11 @@ const generatePreview = async (category) => {
   }
 };
 
-const labelFor = (category) => {
-  const labels = {
-    "asteroid-dodge": "Asteroid Dodge",
-    "orb-collector": "Orb Collector",
-    "target-clicker": "Target Clicker",
-    "snake-trail": "Snake Trail",
-    "lane-runner": "Lane Runner",
-    "orbit-guard": "Orbit Guard",
-    "paddle-breaker": "Paddle Breaker",
-    "pong-duel": "Pong Duel",
-    "billiards-break": "Billiards Break",
-    "sky-jumper": "Sky Jumper",
-    "pulse-defense": "Pulse Defense"
-  };
-  return labels[category] || "Random";
-};
-
-const toggleCustomPrompt = () => {
-  customPromptPanel.hidden = !customPromptPanel.hidden;
-  if (!customPromptPanel.hidden) {
-    customGamePrompt.focus();
-    setAgentTrace([
-      traceLine("User", "在右侧输入 game prompt。"),
-      traceLine("Agent", "我会把 prompt 转成玩法、标题、素材和发布页面。", "active")
-    ], 1);
-    setLog("输入你的游戏想法，会生成一个独立页面并发布到 StoryClaw hub 的 /static/games/ 路径。");
-  }
+const displayModeFor = (preview) => {
+  if (preview.modeLabel) return preview.modeLabel;
+  if (preview.genreLabel) return preview.genreLabel;
+  if (preview.promptSummary && preview.promptSummary !== "Randomized quick preview") return "Open Prompt";
+  return "Open Mix";
 };
 
 const publishCustomGame = async (event) => {
@@ -433,7 +455,9 @@ const publishCustomGame = async (event) => {
   }
 
   publishCustomButton.disabled = true;
+  const startedAt = performance.now();
   setStatus("Publishing", true);
+  setPreviewLoading(true, "Building and publishing game", "Prompt routing · static package · Cloudflare preview iframe");
   animateAgentTrace(buildPendingTrace(prompt, "publish"));
   setLog("正在根据 prompt 生成游戏，并写入 StoryClaw hub public 目录...");
 
@@ -450,12 +474,14 @@ const publishCustomGame = async (event) => {
 
     const result = await response.json();
     const publicUrl = result.hubUrl || result.publishedUrl || result.subdomainUrl || result.previewUrl;
+    await waitForMinimumDuration(startedAt, PUBLISH_MIN_MS);
     renderGeneratedPreview(result, prompt);
     publishedLink.href = publicUrl;
     setStatus("Published");
     setLog(`Published ${result.title} to StoryClaw hub: ${publicUrl}`);
   } catch (error) {
     stopAgentTraceAnimation();
+    setPreviewLoading(false);
     setStatus("Error");
     setAgentTrace([traceLine("Agent", error.message, "error")], 0);
     setLog(error.message);
@@ -472,11 +498,13 @@ window.addEventListener("keydown", (event) => {
   }
 });
 resetPreviewButton.addEventListener("click", showDemo);
-previewButtons.forEach((button) => {
-  button.addEventListener("click", () => generatePreview(button.dataset.category));
-});
-customGameButton.addEventListener("click", toggleCustomPrompt);
 customPromptPanel.addEventListener("submit", publishCustomGame);
+setAgentTrace([
+  traceLine("Input", "Prompt composer mounted · waiting for mechanic/theme/control details."),
+  traceLine("Intent Router", "Prompt-only route active: unsupported ideas now use the open runtime instead of falling into a preset category."),
+  traceLine("Agent", "会把 prompt 转成玩法、标题、素材、三文件 zip、preview iframe 和发布页面。", "active")
+], 1);
+setLog("输入你的游戏想法，会按 prompt 生成一个独立 HTML 游戏并发布。");
 
 resetGame();
 requestAnimationFrame(loop);

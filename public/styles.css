@@ -259,6 +259,27 @@ a {
   white-space: nowrap;
 }
 
+.console-metrics {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.console-metrics span {
+  min-height: 28px;
+  padding: 6px 8px;
+  border: 1px solid rgba(201, 255, 47, 0.14);
+  border-radius: 6px;
+  background: rgba(3, 4, 3, 0.5);
+  color: rgba(242, 248, 239, 0.78);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
 .agent-dialogue {
   position: relative;
   z-index: 1;
@@ -394,6 +415,96 @@ h2 {
 #gameCanvas[hidden],
 #gamePreview[hidden] {
   display: none;
+}
+
+.preview-loading[hidden] {
+  display: none;
+}
+
+.preview-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  padding: 24px;
+  background:
+    linear-gradient(rgba(117, 244, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 255, 47, 0.06) 1px, transparent 1px),
+    rgba(2, 3, 2, 0.78);
+  background-size: 22px 22px, 22px 22px, auto;
+  color: var(--ink);
+  text-align: center;
+  backdrop-filter: blur(10px);
+}
+
+.loading-core {
+  position: relative;
+  display: grid;
+  width: 92px;
+  height: 92px;
+  place-items: center;
+}
+
+.loading-core::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--neon);
+  box-shadow:
+    0 0 18px var(--neon),
+    0 0 42px rgba(117, 244, 255, 0.44);
+}
+
+.loading-core span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(117, 244, 255, 0.26);
+  border-top-color: var(--neon);
+  border-radius: 50%;
+  animation: loadingSpin 1.1s linear infinite;
+}
+
+.loading-core span:nth-child(2) {
+  inset: 12px;
+  border-color: rgba(201, 255, 47, 0.22);
+  border-right-color: var(--cyan);
+  animation-duration: 1.55s;
+  animation-direction: reverse;
+}
+
+.loading-core span:nth-child(3) {
+  inset: 25px;
+  border-color: rgba(255, 79, 216, 0.2);
+  border-bottom-color: var(--pink);
+  animation-duration: 0.82s;
+}
+
+.loading-copy {
+  display: grid;
+  gap: 6px;
+  max-width: min(440px, 90%);
+}
+
+.loading-copy strong {
+  color: var(--neon);
+  font-size: clamp(18px, 3vw, 28px);
+  font-weight: 900;
+}
+
+.loading-copy small {
+  color: rgba(242, 248, 239, 0.72);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+@keyframes loadingSpin {
+  to { transform: rotate(360deg); }
 }
 
 .game-hud {
@@ -656,6 +767,10 @@ textarea:focus {
   .agent-console {
     width: 100%;
     min-height: 180px;
+  }
+
+  .console-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .status-pill {

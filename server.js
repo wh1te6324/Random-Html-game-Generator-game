@@ -74,7 +74,8 @@ async function handleGenerate(request, response) {
   sendJson(response, 200, {
     id,
     title: result.title,
-    category: result.category,
+    modeLabel: result.modeLabel,
+    genreLabel: result.genreLabel,
     zipUrl: `/generated-games/${id}/${id}.zip`,
     previewUrl: `/previews/${id}/index.html`,
     files: extractedFiles,
@@ -111,7 +112,7 @@ async function handlePublishCustom(request, response) {
     prompt,
     title: result.title,
     controls: result.controls,
-    category: result.category,
+    category: result.modeLabel || result.genreLabel || "Open Prompt",
     sourceDir: unpackDir,
     zipPath: result.zipPath,
     agentTrace: result.agentTrace
@@ -121,7 +122,8 @@ async function handlePublishCustom(request, response) {
     id,
     slug,
     title: result.title,
-    category: result.category,
+    modeLabel: result.modeLabel,
+    genreLabel: result.genreLabel,
     prompt,
     zipUrl: `/generated-games/${id}/${id}.zip`,
     previewUrl: `/previews/${id}/index.html`,
@@ -205,38 +207,11 @@ function sendText(response, statusCode, text) {
 }
 
 function inferCategoryFromPrompt(prompt) {
-  const value = prompt.toLowerCase();
-  const rules = [
-    ["pong-duel", ["pong", "\u4e52\u4e53", "\u5bf9\u6253", "\u53cc\u4eba\u5f39\u7403"]],
-    ["billiards-break", ["billiard", "pool", "\u53f0\u7403", "\u684c\u7403", "\u649e\u7403", "\u7403\u888b", "\u6bcd\u7403", "8 ball", "eight ball"]],
-    ["snake-trail", ["snake", "\u8d2a\u5403\u86c7", "trail", "\u8f68\u8ff9"]],
-    ["pulse-defense", ["tower", "defense", "\u5854\u9632", "\u9632\u5b88", "\u70ae\u5854"]],
-    ["sky-jumper", ["jump", "platform", "\u8df3\u8dc3", "\u5e73\u53f0", "\u8dd1\u9177"]],
-    ["target-clicker", ["click", "tap", "\u70b9\u51fb", "\u53cd\u5e94", "\u5c04\u51fb", "\u6253\u9776"]],
-    ["orb-collector", ["collect", "coin", "orb", "\u6536\u96c6", "\u91d1\u5e01", "\u5b9d\u77f3"]],
-    ["lane-runner", ["lane", "runner", "\u8d5b\u9053", "\u6362\u9053", "\u8eb2\u907f"]],
-    ["orbit-guard", ["orbit", "shield", "\u8f68\u9053", "\u62a4\u76fe", "\u73af\u7ed5"]]
-  ];
-
-  const match = rules.find(([, keywords]) => keywords.some((keyword) => value.includes(keyword)));
-  return match ? match[0] : "asteroid-dodge";
+  return "semantic-canvas";
 }
 
 function createGamePathSlug(category, seed) {
-  const codes = {
-    "asteroid-dodge": "dodge",
-    "orb-collector": "orb",
-    "target-clicker": "tap",
-    "snake-trail": "snake",
-    "lane-runner": "lane",
-    "orbit-guard": "orbit",
-    "paddle-breaker": "paddle",
-    "pong-duel": "pong",
-    "billiards-break": "pool",
-    "sky-jumper": "jump",
-    "pulse-defense": "tower"
-  };
-  return `${codes[category] || "game"}-${Number(seed).toString(36)}`;
+  return `game-${Number(seed).toString(36)}`;
 }
 
 async function publishToClawHub({ slug, id, prompt, title, controls, category, sourceDir, zipPath, agentTrace = [] }) {
@@ -304,6 +279,8 @@ function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory,
       .console-kicker { display: inline-flex; align-items: center; gap: 8px; }
       .console-kicker::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 16px var(--neon); }
       .console-state { padding: 4px 8px; border: 1px solid rgba(117,244,255,.3); border-radius: 999px; color: var(--cyan); background: rgba(117,244,255,.06); white-space: nowrap; }
+      .console-metrics { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+      .console-metrics span { min-height: 28px; padding: 6px 8px; border: 1px solid rgba(201,255,47,.14); border-radius: 6px; background: rgba(3,4,3,.5); color: rgba(242,248,239,.78); font-family: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace; font-size: 10px; line-height: 1.25; text-transform: uppercase; }
       .trace-list { display: grid; gap: 6px; min-height: 104px; color: var(--muted); font-family: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace; font-size: 11px; line-height: 1.38; }
       .trace-row { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; align-items: start; min-height: 20px; }
       .trace-step { display: inline-grid; min-width: 30px; height: 22px; place-items: center; border: 1px solid var(--neon); border-radius: 6px; color: #061005; background: var(--neon); box-shadow: 0 0 16px rgba(201,255,47,.28); font-size: 11px; font-weight: 900; }
@@ -317,7 +294,7 @@ function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory,
       .ghost { background: rgba(117,244,255,.09); color: var(--cyan); border-color: var(--cyan); }
       output { color: #f8dfff; min-height: 42px; padding: 12px; border: 1px solid rgba(255,79,216,.18); border-radius: 8px; background: rgba(255,79,216,.055); }
       @keyframes consoleSweep { from { transform: translateX(0); } to { transform: translateX(390%); } }
-      @media (max-width: 980px) { main { grid-template-columns: 1fr; } header { grid-template-columns: 1fr; } iframe { min-height: 500px; height: 66vh; } }
+      @media (max-width: 980px) { main { grid-template-columns: 1fr; } header { grid-template-columns: 1fr; } iframe { min-height: 500px; height: 66vh; } .console-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     </style>
   </head>
   <body>
@@ -330,6 +307,12 @@ function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory,
               <div class="console-header">
                 <span class="console-kicker">Agent Thinking Console</span>
                 <span class="console-state">published trace</span>
+              </div>
+              <div class="console-metrics">
+                <span>router: prompt-first</span>
+                <span>runtime: canvas-2d</span>
+                <span>artifact: 3-file zip</span>
+                <span>publish: StoryClaw static</span>
               </div>
               <div class="trace-list">${safeTraceHtml}</div>
             </div>
