@@ -25,6 +25,18 @@ The preview agent lives at `src/preview-agent.js`. It no longer routes prompts t
 
 Runtime blueprints are implementation scaffolds only. They are chosen from semantic verbs, entities, HUD, fail pressure, and progression. They must not override the prompt.
 
+## Generation Quality Constraints
+
+When a model-backed generator is available, it should spend more of the response budget on internal design thinking before writing files. The internal pass must compare at least two mechanic directions, reject the generic one, and choose the version with the clearest prompt fit, visual identity, and playable loop. Do not expose a long plan to the player; put concise reasoning in `agentTrace` only.
+
+Visuals must not feel empty or placeholder-like. The generator should build a small asset plan before coding: background layers, foreground props, UI materials, character/object silhouettes, particles, icons, and state-specific effects. If browsing or retrieval tools are available, use them to study visual references or permissive asset sources, but do not hotlink remote assets in the final game. Final output should remain self-contained through Canvas/SVG/CSS shapes, inline data URIs, or procedurally generated assets inside the required three files.
+
+## Default One-Shot Studio Sprint
+
+The model should adapt Claude Code Game Studios-style workflow commands into one default sprint. A single user sentence should silently trigger: auto-start, brainstorm, concept selection, pillars and anti-pillars, systems map, compact art bible, asset inventory, prototype-risk check, implementation, and smoke QA. The user should not have to request these steps manually.
+
+Treat missing inputs conservatively: browser platform, vanilla JavaScript, lean internal gates, small complete scope, no runtime remote assets, responsive controls, and exact three-file output. If a stage reveals an off-prompt or visually thin result, revise before packaging.
+
 ## Run
 
 No npm dependencies are required.
@@ -38,6 +50,19 @@ Open:
 ```text
 http://127.0.0.1:4180/
 ```
+
+## StoryClaw Model Relay
+
+By default the app can still generate locally with the semantic preview agent. To use the StoryClaw/OpenRouter relay for higher-quality game generation, set the relay key before starting the server:
+
+```bash
+export STORYCLAW_OPENROUTER_API_KEY="..."
+export STORYCLAW_GAME_MODEL="openai/gpt-5.5"
+export STORYCLAW_OPENROUTER_BASE_URL="https://openrouter.ai/api/v1/chat/completions"
+export STORYCLAW_GAME_MAX_TOKENS=18000
+```
+
+The model prompt includes this repo's `README.md` plus the sibling `html-game-agent` markdown guidance files when present, so generation keeps the local studio workflow and the three-file zip contract. If the relay is not configured or the model request fails, the backend falls back to the existing local semantic generator.
 
 ## Run On A StoryClaw Machine
 

@@ -81,6 +81,8 @@ async function handleGenerate(request, response) {
     files: extractedFiles,
     controls: result.controls,
     promptSummary: result.promptSummary,
+    generationSource: result.generationSource,
+    generationNotes: result.generationNotes,
     agentTrace: result.agentTrace
   });
 }
@@ -133,6 +135,8 @@ async function handlePublishCustom(request, response) {
     files: extractedFiles,
     controls: result.controls,
     promptSummary: result.promptSummary,
+    generationSource: result.generationSource,
+    generationNotes: result.generationNotes,
     agentTrace: result.agentTrace
   });
 }

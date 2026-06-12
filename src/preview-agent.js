@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createZipFile, readZipFile } from "./zip.js";
+import { generateGameWithStoryClawModel, isStoryClawModelConfigured } from "./storyclaw-model.js";
 
 const OPEN_RUNTIME_ID = "semantic-canvas";
 const categories = [OPEN_RUNTIME_ID];
@@ -121,12 +122,25 @@ export async function createPreviewGameZip({ category, id, outputDir, prompt = "
   const pickedCategory = chooseCategory(category, promptProfile);
   const seed = Math.floor(Math.random() * 900000) + 100000;
   const game = buildGame(pickedCategory, seed, promptProfile);
-  const agentTrace = buildAgentTrace(prompt, game, promptProfile);
-  const files = {
+  const modelGame = await maybeGenerateWithStoryClawModel({ prompt, id, game, promptProfile });
+  const agentTrace = modelGame?.agentTrace || buildAgentTrace(prompt, game, promptProfile);
+  const files = modelGame?.files || {
     "index.html": buildHtml(game),
     "styles.css": buildCss(game),
     "script.js": buildScript(game)
   };
+  const resolvedGame = modelGame ? {
+    ...game,
+    title: modelGame.title,
+    modeLabel: modelGame.modeLabel,
+    genreLabel: modelGame.genreLabel,
+    controls: modelGame.controls,
+    promptSummary: modelGame.promptSummary,
+    generationNotes: [
+      ...(modelGame.generationNotes || []),
+      "fallback=local-generator-on-model-error"
+    ]
+  } : game;
 
   await mkdir(outputDir, { recursive: true });
 
@@ -145,14 +159,15 @@ export async function createPreviewGameZip({ category, id, outputDir, prompt = "
 
   const manifest = {
     id,
-    title: game.title,
+    title: resolvedGame.title,
     category: pickedCategory,
-    modeLabel: game.modeLabel,
-    genreLabel: game.genreLabel,
-    controls: game.controls,
-    promptSummary: game.promptSummary,
+    modeLabel: resolvedGame.modeLabel,
+    genreLabel: resolvedGame.genreLabel,
+    controls: resolvedGame.controls,
+    promptSummary: resolvedGame.promptSummary,
     agentTrace,
-    generationNotes: game.generationNotes,
+    generationSource: modelGame ? "storyclaw-openrouter" : "local-semantic-generator",
+    generationNotes: resolvedGame.generationNotes,
     zipPath,
     zipUrl: `/generated-games/${id}/${id}.zip`,
     previewUrl: `/previews/${id}/index.html`,
@@ -162,6 +177,21 @@ export async function createPreviewGameZip({ category, id, outputDir, prompt = "
   await writeFile(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
 
   return { ...manifest, zipPath };
+}
+
+async function maybeGenerateWithStoryClawModel({ prompt, id, game, promptProfile }) {
+  if (!isStoryClawModelConfigured()) return null;
+  try {
+    return await generateGameWithStoryClawModel({
+      prompt,
+      id,
+      semanticSpec: game.semanticSpec,
+      promptProfile
+    });
+  } catch (error) {
+    console.warn(`[storyclaw-model] Falling back to local generator: ${error.message}`);
+    return null;
+  }
 }
 
 export async function extractGameZip(zipPath, outputDir) {
