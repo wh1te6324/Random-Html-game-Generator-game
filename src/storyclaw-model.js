@@ -8,13 +8,27 @@ const workspaceRoot = path.resolve(repoRoot, "..");
 
 const DEFAULT_MODEL = "openai/gpt-5.5";
 const DEFAULT_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
-const MAX_CONTEXT_CHARS = 32000;
+const MAX_CONTEXT_CHARS = 64000;
 const REQUIRED_FILES = ["index.html", "styles.css", "script.js"];
 
 const guidanceFiles = [
   path.join(repoRoot, "README.md"),
   path.join(workspaceRoot, "html-game-agent", "IDENTITY.md"),
   path.join(workspaceRoot, "html-game-agent", "STUDIO_WORKFLOW.md"),
+  path.join(workspaceRoot, "html-game-agent", "SUBAGENT_ARCHITECTURE.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "producer.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "creative-director.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "game-designer.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "systems-designer.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "ux-designer.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "art-director.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "visual-development-artist.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "asset-designer.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "vfx-artist.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "ui-hud-artist.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "technical-artist.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "gameplay-programmer.md"),
+  path.join(workspaceRoot, "html-game-agent", ".claude", "agents", "qa-playtester.md"),
   path.join(workspaceRoot, "html-game-agent", "SOUL.md"),
   path.join(workspaceRoot, "html-game-agent", "AGENTS.md"),
   path.join(workspaceRoot, "html-game-agent", "USER.md")
@@ -44,7 +58,7 @@ export async function generateGameWithStoryClawModel({ prompt, id, semanticSpec,
     body: JSON.stringify({
       model,
       temperature: Number(process.env.STORYCLAW_GAME_TEMPERATURE || 0.72),
-      max_tokens: Number(process.env.STORYCLAW_GAME_MAX_TOKENS || 18000),
+      max_tokens: Number(process.env.STORYCLAW_GAME_MAX_TOKENS || 12000),
       messages: [
         {
           role: "system",

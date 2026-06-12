@@ -59,7 +59,7 @@ By default the app can still generate locally with the semantic preview agent. T
 export STORYCLAW_OPENROUTER_API_KEY="..."
 export STORYCLAW_GAME_MODEL="openai/gpt-5.5"
 export STORYCLAW_OPENROUTER_BASE_URL="https://openrouter.ai/api/v1/chat/completions"
-export STORYCLAW_GAME_MAX_TOKENS=18000
+export STORYCLAW_GAME_MAX_TOKENS=12000
 ```
 
 The model prompt includes this repo's `README.md` plus the sibling `html-game-agent` markdown guidance files when present, so generation keeps the local studio workflow and the three-file zip contract. If the relay is not configured or the model request fails, the backend falls back to the existing local semantic generator.
