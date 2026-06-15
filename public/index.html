@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,13 +16,13 @@
     <div class="agent-console" aria-label="Agent generation console">
       <div class="console-inner">
         <div class="console-header">
-          <span class="console-kicker">Agent Thinking Console</span>
-          <span class="console-state">live trace</span>
+          <span class="console-kicker" id="consoleKicker">Agent Thinking Console</span>
+          <span class="console-state" id="consoleState">live trace</span>
         </div>
         <div class="agent-dialogue" id="agentDialogue" aria-live="polite">
           <div class="agent-line active">
             <span class="trace-step">00</span>
-            <span class="trace-body"><strong>Agent:</strong> 等待你的 prompt。生成过程会展示语义拆解、玩法设计、系统实现和 QA 检查。</span>
+            <span class="trace-body"><strong>Agent:</strong> <span id="initialTraceText">Waiting for your prompt.</span></span>
           </div>
         </div>
       </div>
@@ -34,10 +34,19 @@
           <span class="brand-mark" aria-hidden="true">AI</span>
           <span>
             <strong>AI Game Lab</strong>
-            <small>Prompt-native HTML game studio</small>
+            <small id="brandTagline">Prompt-native HTML game studio</small>
           </span>
         </a>
         <div class="top-bar-right">
+          <label class="locale-control" for="localeSelect">
+            <span id="localeLabel">Language</span>
+            <select id="localeSelect" aria-label="Language">
+              <option value="en">English</option>
+              <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁體中文</option>
+              <option value="ja">日本語</option>
+            </select>
+          </label>
           <div class="status-pill" id="statusPill" aria-label="Current build status">
             <span></span>
             <strong id="statusText">Agent ready</strong>
@@ -56,14 +65,14 @@
           <div class="stage-title-row">
             <div class="title-cluster">
               <h1 id="stageTitle">Studio Ready</h1>
-              <span class="hud-category">Mode <strong id="categoryValue">Open</strong></span>
+              <span class="hud-category"><span id="modeLabel">Mode</span> <strong id="categoryValue">Open</strong></span>
             </div>
             <button class="ghost-button" id="resetPreviewButton" type="button">
               <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M21 12a9 9 0 1 1-3-6.7" />
                 <path d="M21 3v5h-5" />
               </svg>
-              Reset
+              <span id="resetButtonLabel">Reset</span>
             </button>
           </div>
 
@@ -76,22 +85,22 @@
               hidden
             ></iframe>
             <div class="preview-loading" id="previewLoading" hidden>
-              <strong>Generating playable build</strong>
-              <small>semantic parse -> design pass -> runtime synthesis</small>
+              <strong id="loadingTitle">Generating playable build</strong>
+              <small id="loadingSubtitle">semantic parse -> design pass -> runtime synthesis</small>
             </div>
           </div>
 
           <div class="game-hud" aria-label="Game build stats">
-            <span>Files <strong id="filesValue">index / css / js</strong></span>
-            <span id="controlsValue">输入 prompt 后会生成专属控制方式。</span>
+            <span><span id="filesLabel">Files</span> <strong id="filesValue">index / css / js</strong></span>
+            <span id="controlsValue">Enter a prompt to generate custom controls.</span>
           </div>
         </section>
 
         <aside class="share-panel" aria-label="Agent generation controls">
           <div class="share-copy">
-            <h2>语义驱动的小游戏生成工作台</h2>
-            <p>
-              写下你想要的玩法、世界观、视觉风格或互动规则。Agent 会先理解语义，再经过创意、玩法、系统、美术、程序和 QA 多阶段生成完整三文件 HTML 游戏。
+            <h2 id="panelTitle">Semantic mini-game generator</h2>
+            <p id="panelBody">
+              Describe mechanics, world, visual style, or interaction rules. The agent turns the prompt into a complete three-file HTML game.
             </p>
           </div>
 
@@ -104,24 +113,24 @@
                 <circle cx="15.5" cy="8.5" r="1.4" fill="currentColor" stroke="none" />
                 <circle cx="8.5" cy="15.5" r="1.4" fill="currentColor" stroke="none" />
               </svg>
-              随机生成开放原型
+              <span id="randomButtonLabel">Generate open prototype</span>
             </button>
             <button class="share-button custom-game-button" id="customGameButton" type="button">
               <span class="button-icon">AI</span>
-              生成你自己的游戏
+              <span id="customButtonLabel">Generate your own game</span>
             </button>
           </div>
 
           <form class="custom-prompt-panel" id="customPromptPanel">
             <label class="field-stack" for="customGamePrompt">
-              <span>Game prompt</span>
+              <span id="promptLabel">Game prompt</span>
               <textarea
                 id="customGamePrompt"
                 rows="5"
-                placeholder="例如：做一个月光茶馆经营装饰游戏，客人有不同茶味心情，玩家调配茶、布置桌子、管理耐心值。"
+                placeholder="Example: Make a moonlit tea house management game where guests have tea moods, and the player blends tea, arranges tables, and manages patience."
               ></textarea>
             </label>
-            <button class="generate-button" id="publishCustomButton" type="submit">立即生成并发布</button>
+            <button class="generate-button" id="publishCustomButton" type="submit">Generate and publish</button>
           </form>
 
           <a class="zip-download disabled" id="zipDownload" href="#" aria-disabled="true">
@@ -130,7 +139,7 @@
               <path d="m7 10 5 5 5-5" />
               <path d="M5 21h14" />
             </svg>
-            下载生成 zip
+            <span id="zipDownloadLabel">Download generated zip</span>
           </a>
 
           <a class="published-link disabled" id="publishedLink" href="#" target="_blank" rel="noreferrer" aria-disabled="true">
@@ -139,11 +148,11 @@
               <path d="M10 14 21 3" />
               <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
             </svg>
-            打开发布页面
+            <span id="publishedLinkLabel">Open published page</span>
           </a>
 
           <output class="agent-log" id="agentLog" aria-live="polite">
-            Ready. 输入 prompt 后，生成过程会显示在上方控制台。
+            Ready. Enter a prompt and the generation trace will appear above.
           </output>
         </aside>
       </section>

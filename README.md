@@ -150,6 +150,13 @@ Content-Type: application/json
 { "prompt": "做一个月光茶馆经营装饰游戏，客人有不同茶味心情，玩家调配茶、布置桌子、管理耐心值。" }
 ```
 
+When embedded from the StoryClaw website, pass the website locale through the URL or request body:
+
+- Page URL: `/?locale=en`, `/?locale=zh-CN`, `/?locale=zh-TW`, or `/?locale=ja`
+- API body: `{ "prompt": "...", "locale": "zh-CN" }`
+
+The UI, generated-game `html lang`, published-page copy, and model prompt language constraints follow that locale.
+
 Response:
 
 ```json

@@ -117,15 +117,16 @@ const visualSkillSets = {
   }
 };
 
-export async function createPreviewGameZip({ category, id, outputDir, prompt = "" }) {
+export async function createPreviewGameZip({ category, id, outputDir, prompt = "", locale = "en" }) {
+  const outputLocale = normalizeLocale(locale);
   const promptProfile = analyzePrompt(prompt);
   const pickedCategory = chooseCategory(category, promptProfile);
   const seed = Math.floor(Math.random() * 900000) + 100000;
   const game = buildGame(pickedCategory, seed, promptProfile);
-  const modelGame = await maybeGenerateWithStoryClawModel({ prompt, id, game, promptProfile });
+  const modelGame = await maybeGenerateWithStoryClawModel({ prompt, id, game, promptProfile, locale: outputLocale });
   const agentTrace = modelGame?.agentTrace || buildAgentTrace(prompt, game, promptProfile);
   const files = modelGame?.files || {
-    "index.html": buildHtml(game),
+    "index.html": buildHtml(game, outputLocale),
     "styles.css": buildCss(game),
     "script.js": buildScript(game)
   };
@@ -165,6 +166,7 @@ export async function createPreviewGameZip({ category, id, outputDir, prompt = "
     genreLabel: resolvedGame.genreLabel,
     controls: resolvedGame.controls,
     promptSummary: resolvedGame.promptSummary,
+    locale: outputLocale,
     agentTrace,
     generationSource: modelGame ? "storyclaw-openrouter" : "local-semantic-generator",
     generationNotes: resolvedGame.generationNotes,
@@ -179,14 +181,15 @@ export async function createPreviewGameZip({ category, id, outputDir, prompt = "
   return { ...manifest, zipPath };
 }
 
-async function maybeGenerateWithStoryClawModel({ prompt, id, game, promptProfile }) {
+async function maybeGenerateWithStoryClawModel({ prompt, id, game, promptProfile, locale }) {
   if (!isStoryClawModelConfigured()) return null;
   try {
     return await generateGameWithStoryClawModel({
       prompt,
       id,
       semanticSpec: game.semanticSpec,
-      promptProfile
+      promptProfile,
+      locale
     });
   } catch (error) {
     console.warn(`[storyclaw-model] Falling back to local generator: ${error.message}`);
@@ -262,6 +265,21 @@ function chooseCategory() {
 
 function inferPromptCategory() {
   return OPEN_RUNTIME_ID;
+}
+
+function normalizeLocale(value) {
+  const raw = String(value || "en").trim().replace("_", "-");
+  const aliases = {
+    en: "en",
+    zh: "zh-CN",
+    "zh-cn": "zh-CN",
+    "zh-hans": "zh-CN",
+    "zh-tw": "zh-TW",
+    "zh-hant": "zh-TW",
+    ja: "ja",
+    jp: "ja"
+  };
+  return aliases[raw.toLowerCase()] || "en";
 }
 
 function createSemanticSpec(raw) {
@@ -940,13 +958,24 @@ function buildGame(category, seed, promptProfile = {}) {
   };
 }
 
-function buildHtml(game) {
+function gameUiCopy(locale) {
+  const copy = {
+    en: { preview: "preview", restart: "Restart", score: "Score", best: "Best" },
+    "zh-CN": { preview: "预览", restart: "重开", score: "得分", best: "最佳" },
+    "zh-TW": { preview: "預覽", restart: "重開", score: "得分", best: "最佳" },
+    ja: { preview: "プレビュー", restart: "リスタート", score: "スコア", best: "ベスト" }
+  };
+  return copy[locale] || copy.en;
+}
+
+function buildHtml(game, locale = "en") {
   const safeTitle = escapeHtml(game.title);
   const safeTheme = escapeHtml(game.theme.name);
   const safeSubtitle = escapeHtml(game.subtitle);
   const safeControls = escapeHtml(game.controls);
+  const ui = gameUiCopy(locale);
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${locale}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -957,16 +986,16 @@ function buildHtml(game) {
     <main class="game-shell">
       <header>
         <div>
-          <p>${safeTheme} preview</p>
+          <p>${safeTheme} ${ui.preview}</p>
           <h1>${safeTitle}</h1>
           <span>${safeSubtitle}</span>
         </div>
-        <button id="restartButton" type="button">Restart</button>
+        <button id="restartButton" type="button">${ui.restart}</button>
       </header>
       <canvas id="gameCanvas" width="960" height="540"></canvas>
       <footer>
-        <span>Score <strong id="scoreValue">0</strong></span>
-        <span>Best <strong id="bestValue">0</strong></span>
+        <span>${ui.score} <strong id="scoreValue">0</strong></span>
+        <span>${ui.best} <strong id="bestValue">0</strong></span>
         <span id="hintValue">${safeControls}</span>
       </footer>
     </main>

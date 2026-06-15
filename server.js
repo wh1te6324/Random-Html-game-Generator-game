@@ -61,6 +61,7 @@ async function handleGenerate(request, response) {
   const body = await readJson(request);
   const category = body.category || "random";
   const prompt = String(body.prompt || "").trim();
+  const locale = normalizeLocale(body.locale);
   const id = `${slugify(category)}-${Date.now().toString(36)}-${randomUUID().slice(0, 6)}`;
   const gameDir = path.join(generatedDir, id);
   const unpackDir = path.join(previewsDir, id);
@@ -68,7 +69,7 @@ async function handleGenerate(request, response) {
   await mkdir(gameDir, { recursive: true });
   await mkdir(unpackDir, { recursive: true });
 
-  const result = await createPreviewGameZip({ category, id, outputDir: gameDir, prompt });
+  const result = await createPreviewGameZip({ category, id, outputDir: gameDir, prompt, locale });
   const extractedFiles = await extractGameZip(result.zipPath, unpackDir);
 
   sendJson(response, 200, {
@@ -80,6 +81,7 @@ async function handleGenerate(request, response) {
     previewUrl: `/previews/${id}/index.html`,
     files: extractedFiles,
     controls: result.controls,
+    locale,
     promptSummary: result.promptSummary,
     generationSource: result.generationSource,
     generationNotes: result.generationNotes,
@@ -90,6 +92,7 @@ async function handleGenerate(request, response) {
 async function handlePublishCustom(request, response) {
   const body = await readJson(request);
   const prompt = String(body.prompt || "").trim();
+  const locale = normalizeLocale(body.locale);
 
   if (!prompt) {
     sendJson(response, 400, { error: "Prompt is required." });
@@ -106,7 +109,7 @@ async function handlePublishCustom(request, response) {
   await mkdir(gameDir, { recursive: true });
   await mkdir(unpackDir, { recursive: true });
 
-  const result = await createPreviewGameZip({ category, id, outputDir: gameDir, prompt });
+  const result = await createPreviewGameZip({ category, id, outputDir: gameDir, prompt, locale });
   const extractedFiles = await extractGameZip(result.zipPath, unpackDir);
   const hubPublish = await publishToClawHub({
     slug,
@@ -117,7 +120,8 @@ async function handlePublishCustom(request, response) {
     category: result.modeLabel || result.genreLabel || "Open Prompt",
     sourceDir: unpackDir,
     zipPath: result.zipPath,
-    agentTrace: result.agentTrace
+    agentTrace: result.agentTrace,
+    locale
   });
 
   sendJson(response, 200, {
@@ -137,7 +141,8 @@ async function handlePublishCustom(request, response) {
     promptSummary: result.promptSummary,
     generationSource: result.generationSource,
     generationNotes: result.generationNotes,
-    agentTrace: result.agentTrace
+    agentTrace: result.agentTrace,
+    locale
   });
 }
 
@@ -218,7 +223,88 @@ function createGamePathSlug(category, seed) {
   return `game-${Number(seed).toString(36)}`;
 }
 
-async function publishToClawHub({ slug, id, prompt, title, controls, category, sourceDir, zipPath, agentTrace = [] }) {
+function normalizeLocale(value) {
+  const raw = String(value || "en").trim().replace("_", "-");
+  const aliases = new Map([
+    ["en", "en"],
+    ["zh", "zh-CN"],
+    ["zh-cn", "zh-CN"],
+    ["zh-hans", "zh-CN"],
+    ["zh-tw", "zh-TW"],
+    ["zh-hant", "zh-TW"],
+    ["ja", "ja"],
+    ["jp", "ja"]
+  ]);
+  return aliases.get(raw.toLowerCase()) || "en";
+}
+
+function publishedCopy(locale) {
+  const copy = {
+    en: {
+      publishedTrace: "published trace",
+      pipeline: "pipeline: studio semantic",
+      runtime: "runtime: prompt-native",
+      art: "art: mini bible",
+      artifact: "artifact: 3-file zip",
+      downloadZip: "Download zip",
+      createAnother: "Create another game",
+      generateOwn: "Generate your own game",
+      pageDesc: "This page was published to the StoryClaw static hub. Use the prompt below as the starting point for another game.",
+      prompt: "Game prompt",
+      copyPrompt: "Copy prompt",
+      controls: "Controls",
+      copied: "Prompt copied."
+    },
+    "zh-CN": {
+      publishedTrace: "发布轨迹",
+      pipeline: "流程：语义工作室",
+      runtime: "运行时：prompt 原生",
+      art: "美术：迷你 bible",
+      artifact: "产物：三文件 zip",
+      downloadZip: "下载 zip",
+      createAnother: "再创建一个游戏",
+      generateOwn: "生成你自己的游戏",
+      pageDesc: "这个页面已发布到 StoryClaw 静态 hub。你可以用下面的 prompt 作为下一个游戏的起点。",
+      prompt: "游戏 prompt",
+      copyPrompt: "复制 prompt",
+      controls: "控制方式",
+      copied: "Prompt 已复制。"
+    },
+    "zh-TW": {
+      publishedTrace: "發布軌跡",
+      pipeline: "流程：語義工作室",
+      runtime: "執行時：prompt 原生",
+      art: "美術：迷你 bible",
+      artifact: "產物：三檔案 zip",
+      downloadZip: "下載 zip",
+      createAnother: "再建立一個遊戲",
+      generateOwn: "生成你自己的遊戲",
+      pageDesc: "這個頁面已發布到 StoryClaw 靜態 hub。你可以用下面的 prompt 作為下一個遊戲的起點。",
+      prompt: "遊戲 prompt",
+      copyPrompt: "複製 prompt",
+      controls: "控制方式",
+      copied: "Prompt 已複製。"
+    },
+    ja: {
+      publishedTrace: "公開トレース",
+      pipeline: "パイプライン：セマンティックスタジオ",
+      runtime: "ランタイム：prompt ネイティブ",
+      art: "アート：ミニバイブル",
+      artifact: "成果物：3 ファイル zip",
+      downloadZip: "zip をダウンロード",
+      createAnother: "別のゲームを作る",
+      generateOwn: "自分のゲームを生成",
+      pageDesc: "このページは StoryClaw 静的 hub に公開されました。下の prompt を次のゲームの出発点にできます。",
+      prompt: "ゲーム prompt",
+      copyPrompt: "prompt をコピー",
+      controls: "操作",
+      copied: "Prompt をコピーしました。"
+    }
+  };
+  return copy[locale] || copy.en;
+}
+
+async function publishToClawHub({ slug, id, prompt, title, controls, category, sourceDir, zipPath, agentTrace = [], locale = "en" }) {
   const publishId = `${slug}-${id.split("-").slice(-2).join("-")}`;
   const relativeDir = `games/${publishId}`;
   const targetDir = path.join(clawHubPublicDir, relativeDir);
@@ -243,7 +329,8 @@ async function publishToClawHub({ slug, id, prompt, title, controls, category, s
     safeControls,
     safeCategory,
     safeTraceHtml,
-    publishId
+    publishId,
+    locale
   }), "utf8");
 
   const hubPath = `/static/${relativeDir}/index.html`;
@@ -255,9 +342,10 @@ async function publishToClawHub({ slug, id, prompt, title, controls, category, s
   };
 }
 
-function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory, safeTraceHtml, publishId }) {
+function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory, safeTraceHtml, publishId, locale }) {
+  const copy = publishedCopy(locale);
   return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${locale}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -310,41 +398,41 @@ function buildPublishedPage({ safeTitle, safePrompt, safeControls, safeCategory,
             <div class="agent-console" aria-label="Agent generation console">
               <div class="console-header">
                 <span class="console-kicker">Agent Thinking Console</span>
-                <span class="console-state">published trace</span>
+                <span class="console-state">${copy.publishedTrace}</span>
               </div>
               <div class="console-metrics">
-                <span>pipeline: studio semantic</span>
-                <span>runtime: prompt-native</span>
-                <span>art: mini bible</span>
-                <span>artifact: 3-file zip</span>
+                <span>${copy.pipeline}</span>
+                <span>${copy.runtime}</span>
+                <span>${copy.art}</span>
+                <span>${copy.artifact}</span>
               </div>
               <div class="trace-list">${safeTraceHtml}</div>
             </div>
             <h1>${safeTitle}</h1>
           </div>
-          <a href="./${publishId}.zip">Download zip</a>
+          <a href="./${publishId}.zip">${copy.downloadZip}</a>
         </header>
         <iframe src="./game/index.html" title="${safeTitle}" sandbox="allow-scripts allow-same-origin allow-pointer-lock"></iframe>
       </section>
       <aside class="panel">
         <div>
-          <p class="eyebrow">Create another game</p>
-          <h2>Generate your own game</h2>
-          <p>This page was published to the StoryClaw static hub. Use the prompt below as the starting point for another game.</p>
+          <p class="eyebrow">${copy.createAnother}</p>
+          <h2>${copy.generateOwn}</h2>
+          <p>${copy.pageDesc}</p>
         </div>
         <label>
-          Game prompt
+          ${copy.prompt}
           <textarea id="prompt">${safePrompt}</textarea>
         </label>
-        <button id="copyPrompt" type="button">Copy prompt</button>
-        <a class="ghost" href="./${publishId}.zip">Download zip</a>
-        <output id="status">Controls: ${safeControls}</output>
+        <button id="copyPrompt" type="button">${copy.copyPrompt}</button>
+        <a class="ghost" href="./${publishId}.zip">${copy.downloadZip}</a>
+        <output id="status">${copy.controls}: ${safeControls}</output>
       </aside>
     </main>
     <script>
       document.querySelector("#copyPrompt").addEventListener("click", async () => {
         await navigator.clipboard.writeText(document.querySelector("#prompt").value);
-        document.querySelector("#status").textContent = "Prompt copied.";
+        document.querySelector("#status").textContent = ${JSON.stringify(copy.copied)};
       });
     </script>
   </body>

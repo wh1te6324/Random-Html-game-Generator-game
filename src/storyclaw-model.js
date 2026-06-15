@@ -38,14 +38,14 @@ export function isStoryClawModelConfigured() {
   return Boolean(process.env.STORYCLAW_OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY);
 }
 
-export async function generateGameWithStoryClawModel({ prompt, id, semanticSpec, promptProfile }) {
+export async function generateGameWithStoryClawModel({ prompt, id, semanticSpec, promptProfile, locale = "en" }) {
   const apiKey = process.env.STORYCLAW_OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
 
   const endpoint = process.env.STORYCLAW_OPENROUTER_BASE_URL || process.env.OPENROUTER_BASE_URL || DEFAULT_ENDPOINT;
   const model = process.env.STORYCLAW_GAME_MODEL || process.env.OPENROUTER_GAME_MODEL || DEFAULT_MODEL;
   const guidance = await loadGuidanceContext();
-  const requestPrompt = buildGenerationPrompt({ prompt, id, semanticSpec, promptProfile, guidance });
+  const requestPrompt = buildGenerationPrompt({ prompt, id, semanticSpec, promptProfile, guidance, locale });
 
   const response = await fetch(endpoint, {
     method: "POST",
@@ -98,8 +98,14 @@ async function loadGuidanceContext() {
   return chunks.join("\n\n").slice(0, MAX_CONTEXT_CHARS);
 }
 
-function buildGenerationPrompt({ prompt, id, semanticSpec, promptProfile, guidance }) {
+function buildGenerationPrompt({ prompt, id, semanticSpec, promptProfile, guidance, locale }) {
   const userPrompt = String(prompt || "").trim() || "Create a surprising polished prompt-native browser mini game.";
+  const localeInstruction = {
+    en: "English",
+    "zh-CN": "Simplified Chinese",
+    "zh-TW": "Traditional Chinese",
+    ja: "Japanese"
+  }[locale] || "English";
   return [
     "Use the following local repository markdown as the generation constitution.",
     "Keep its studio workflow, prompt-native design, zip contract, visual quality bar, and anti-template rules.",
@@ -110,6 +116,8 @@ function buildGenerationPrompt({ prompt, id, semanticSpec, promptProfile, guidan
     JSON.stringify({
       id,
       prompt: userPrompt,
+      locale,
+      playerFacingLanguage: localeInstruction,
       summary: promptProfile?.summary,
       semanticSpec
     }, null, 2),
@@ -139,6 +147,8 @@ function buildGenerationPrompt({ prompt, id, semanticSpec, promptProfile, guidan
     "- Use vanilla HTML/CSS/JavaScript. The final game must not rely on external CDNs, hotlinked images, analytics, tracking, or runtime network calls.",
     "- If visual references or generated assets are used, recreate or embed them as self-contained Canvas/SVG/CSS/data-URI assets inside the three files.",
     "- The generated game must be playable immediately inside an iframe.",
+    `- All player-facing text in index.html, styles.css generated content, script.js messages, HUD labels, buttons, onboarding, win/fail copy, and controls must be in ${localeInstruction}.`,
+    `- Set the generated document language to ${locale}.`,
     "- It must include a clear objective, immediate input response, HUD/status, success or failure/completion state, and restart.",
     "- Preserve the requested game family instead of reskinning a generic avoid/collect loop.",
     "- Keep text readable on mobile and desktop."

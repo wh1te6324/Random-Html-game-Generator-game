@@ -113,6 +113,29 @@ a {
   gap: 18px;
 }
 
+.locale-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(201, 255, 47, 0.28);
+  border-radius: 8px;
+  background: rgba(3, 4, 3, 0.72);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.locale-control select {
+  min-height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(201, 255, 47, 0.12);
+  color: var(--ink);
+  font: inherit;
+}
+
 .dot-grid {
   width: 88px;
   height: 26px;
